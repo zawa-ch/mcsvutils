@@ -27,7 +27,7 @@ __License
 version()
 {
 	cat <<- __EOF
-	mcsvutils - minecraft server utilities
+	mcsvutils - Minecraft server commandline utilities
 	version 0.1.0 2020-11-24
 	Copyright 2020 zawa-ch.
 	__EOF
