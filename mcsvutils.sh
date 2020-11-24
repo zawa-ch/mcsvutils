@@ -1,11 +1,35 @@
 #! /bin/bash
 
+: <<- __License
+MIT License
+
+Copyright (c) 2020 zawa-ch.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+__License
+
 version()
 {
 	cat <<- __EOF
-	mcsvutil - minecraft server utilities
+	mcsvutils - Minecraft server commandline utilities
 	version 0.1.0 2020-11-24
-	2020, zawa-ch.
+	Copyright 2020 zawa-ch.
 	__EOF
 }
 
@@ -61,7 +85,7 @@ fi
 
 echo_invalid_flag()
 {
-	echo "mcsvutil: [W] 無効なオプション $1 が指定されています" >&2
+	echo "mcsvutils: [W] 無効なオプション $1 が指定されています" >&2
 	echo "通常の引数として読み込ませる場合は先に -- を使用してください" >&2
 }
 
@@ -297,7 +321,7 @@ fetch_mcversions()
 {
 	VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION")
 	if ! [ $? ]; then
-		echoerr "mcsvutil: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"
+		echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"
 	fi
 }
 
@@ -358,11 +382,11 @@ action_create()
 	fi
 	local result
 	if [ "$nameflag" = "" ]; then
-		echoerr "mcsvutil: [E] --nameは必須です"
+		echoerr "mcsvutils: [E] --nameは必須です"
 		return $RESPONCE_ERROR
 	fi
 	if [ "$executeflag" = "" ]; then
-		echoerr "mcsvutil: [E] --executeは必須です"
+		echoerr "mcsvutils: [E] --executeは必須です"
 		return $RESPONCE_ERROR
 	fi
 	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$nameflag\", execute: \"$executeflag\" }")
@@ -448,20 +472,20 @@ action_status()
 		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定した場合、名前の指定は無効です"
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
 			return $RESPONCE_ERROR
 		fi
 		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutil: [E] $profile_file というファイルが見つかりません"
+			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$nameflag
@@ -474,10 +498,10 @@ action_status()
 	fi
 	if as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} は起動しています"
+		echo "mcsvutils: ${profile_name} は起動しています"
 		return $RESPONCE_POSITIVE
 	else
-		echo "mcsvutil: ${profile_name} は起動していません"
+		echo "mcsvutils: ${profile_name} は起動していません"
 		return $RESPONCE_NEGATIVE
 	fi
 }
@@ -549,17 +573,17 @@ action_start()
 		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
 			return $RESPONCE_ERROR
 		fi
 		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutil: [E] $profile_file というファイルが見つかりません"
+			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_execute=$(jq -r ".execute | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		for item in $(jq -r ".options[]" "$profile_file")
 		do
 			profile_options+=("$item")
@@ -569,14 +593,14 @@ action_start()
 			profile_args+=("$item")
 		done
 		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_java=$(jq -r ".javapath | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$nameflag
@@ -609,12 +633,12 @@ action_start()
 	as_user_script "$profile_owner" <<- __EOF
 	if screen -list $profile_name > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} は起動済みです" >&2
+		echo "mcsvutils: ${profile_name} は起動済みです" >&2
 		exit $RESPONCE_NEGATIVE
 	fi
-	echo "mcsvutil: $profile_name を起動しています"
+	echo "mcsvutils: $profile_name を起動しています"
 	if ! cd "$profile_cwd"; then
-		echo "mcsvutil: [E] $profile_cwd に入れませんでした" >&2
+		echo "mcsvutils: [E] $profile_cwd に入れませんでした" >&2
 		exit $RESPONCE_ERROR
 	fi
 	invocations="$profile_java"
@@ -629,10 +653,10 @@ action_start()
 	sleep 10
 	if screen -list "$profile_name" > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} が起動しました"
+		echo "mcsvutils: ${profile_name} が起動しました"
 		exit $RESPONCE_POSITIVE
 	else
-		echo "mcsvutil: [E] ${profile_name} を起動できませんでした" >&2
+		echo "mcsvutils: [E] ${profile_name} を起動できませんでした" >&2
 		exit $RESPONCE_ERROR
 	fi
 	__EOF
@@ -682,20 +706,20 @@ action_stop()
 		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定した場合、名前の指定は無効です"
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
 			return $RESPONCE_ERROR
 		fi
 		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutil: [E] $profile_file というファイルが見つかりません"
+			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ]; then
-			echoerr "mcsvutil: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$nameflag
@@ -708,18 +732,18 @@ action_stop()
 	fi
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} は起動していません" >&2
+		echo "mcsvutils: ${profile_name} は起動していません" >&2
 		return $RESPONCE_NEGATIVE
 	fi
-	echo "mcsvutil: ${profile_name} を停止しています"
+	echo "mcsvutils: ${profile_name} を停止しています"
 	dispatch_command "$profile_owner" "$profile_name" stop
 	sleep 5
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} が停止しました"
+		echo "mcsvutils: ${profile_name} が停止しました"
 		return $RESPONCE_POSITIVE
 	else
-		echo "mcsvutil: [E] ${profile_name} が停止しませんでした" >&2
+		echo "mcsvutils: [E] ${profile_name} が停止しませんでした" >&2
 		return $RESPONCE_ERROR
 	fi
 }
@@ -769,16 +793,16 @@ action_command()
 		local profile_file
 		profile_file="${args[0]}"
 		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutil: [E] $profile_file というファイルが見つかりません"
+			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
 			return $RESPONCE_ERROR
 		fi
 		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		if [ "$profile_cwd" = "" ]; then profile_cwd="./"; fi
 		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutil: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 		for index in $(seq 1 $((${#args[@]} - 1)) )
 		do
 			send_command="$send_command${args[$index]} "
@@ -795,17 +819,17 @@ action_command()
 	fi
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
-		echo "mcsvutil: ${profile_name} は起動していません" >&2
+		echo "mcsvutils: ${profile_name} は起動していません" >&2
 		return $RESPONCE_NEGATIVE
 	fi
 	local pre_log_length
 	if [ "$profile_cwd" != "" ]; then
 		pre_log_length=$(as_user "$profile_owner" "wc -l \"$profile_cwd/logs/latest.log\"" | awk '{print $1}')
 	fi
-	echo "mcsvutil: ${profile_name} にコマンドを送信しています..."
+	echo "mcsvutils: ${profile_name} にコマンドを送信しています..."
 	echo "> $send_command"
 	dispatch_command "$profile_owner" "$profile_name" "$send_command"
-	echo "mcsvutil: コマンドを送信しました"
+	echo "mcsvutils: コマンドを送信しました"
 	sleep .1
 	echo "レスポンス:"
 	as_user "$profile_owner" "tail -n $(($(as_user "$profile_owner" "wc -l \"$profile_cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$profile_cwd/logs/latest.log\""
@@ -852,11 +876,11 @@ action_mcversions()
 		return
 	fi
 	if ! check; then
-		echoerr "mcsvutil: [E] 動作要件のチェックに失敗しました"
+		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました"
 		echoerr "必要なパッケージがインストールされているか確認してください"
 	fi
 	if ! check; then
-		echoerr "mcsvutil: [E] 動作要件のチェックに失敗しました"
+		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました"
 		echoerr "必要なパッケージがインストールされているか確認してください"
 	fi
 	if ! fetch_mcversions; then
@@ -899,7 +923,7 @@ action_mcversions()
 				echo "$item"
 			done
 		else
-			echoerr "mcsvutil: 対象となるバージョンが存在しません"
+			echoerr "mcsvutils: 対象となるバージョンが存在しません"
 			return $RESPONCE_NEGATIVE
 		fi
 	fi
@@ -932,24 +956,24 @@ action_mcdownload()
 		return
 	fi
 	if ! check; then
-		echoerr "mcsvutil: [E] 動作要件のチェックに失敗しました"
+		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました"
 		echoerr "必要なパッケージがインストールされているか確認してください"
 	fi
 	fetch_mcversions
 	if [ ${#args[@]} -lt 1 ]; then
-		echoerr "mcsvutil: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
+		echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
 		return $RESPONCE_ERROR
 	fi
 	local selected_version
 	selected_version="$(echo "$VERSION_MANIFEST" | jq ".versions[] | select( .id == \"${args[0]}\" )")"
 	if [ "$selected_version" = "" ]; then
-		echoerr "mcsvutil: 指定されたバージョンは見つかりませんでした"
+		echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"
 		return $RESPONCE_NEGATIVE
 	fi
-	echo "mcsvutil: ${args[0]} のカタログをダウンロードしています..."
+	echo "mcsvutils: ${args[0]} のカタログをダウンロードしています..."
 	selected_version=$(curl "$(echo "$selected_version" | jq -r '.url')")
 	if ! [ $? ]; then
-		echoerr "mcsvutil: [E] カタログのダウンロードに失敗しました"
+		echoerr "mcsvutils: [E] カタログのダウンロードに失敗しました"
 		return $RESPONCE_ERROR
 	fi
 	local dl_data
@@ -962,16 +986,16 @@ action_mcdownload()
 	else
 		destination="$(basename "$dl_data")"
 	fi
-	echo "mcsvutil: データをダウンロードしています..."
+	echo "mcsvutils: データをダウンロードしています..."
 	if ! wget "$dl_data" -O "$destination"; then
-		echoerr "mcsvutil: [E] データのダウンロードに失敗しました"
+		echoerr "mcsvutils: [E] データのダウンロードに失敗しました"
 		return $RESPONCE_ERROR
 	fi
 	if [ "$(sha1sum "$destination" | awk '{print $1}')" = "$dl_sha1" ]; then
-		echo "mcsvutil: データのダウンロードが完了しました"
+		echo "mcsvutils: データのダウンロードが完了しました"
 		return
 	else
-		echoerr "mcsvutil: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
+		echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
 		return $RESPONCE_ERROR
 	fi
 }
@@ -1004,10 +1028,10 @@ action_check()
 		return
 	fi
 	if check ;then
-		echo "mcsvutil: チェックに成功しました。"
+		echo "mcsvutils: チェックに成功しました。"
 		return $RESPONCE_POSITIVE
 	else
-		echo "mcsvutil: チェックに失敗しました。"
+		echo "mcsvutils: チェックに失敗しました。"
 		return $RESPONCE_NEGATIVE
 	fi
 }
@@ -1046,7 +1070,7 @@ action_none()
 		action_version
 		return $?
 	else
-		echoerr "mcsvutil: [E] アクションが指定されていません。"
+		echoerr "mcsvutils: [E] アクションが指定されていません。"
 		usage >&2
 		return $RESPONCE_ERROR
 	fi
@@ -1056,7 +1080,7 @@ if [ "$action" != "" ]; then
 	"action_$action"
 	exit $?
 else
-	echoerr "mcsvutil: [E] 無効なアクションを指定しました。"
+	echoerr "mcsvutils: [E] 無効なアクションを指定しました。"
 	usage >&2
 	return $RESPONCE_ERROR
 fi
