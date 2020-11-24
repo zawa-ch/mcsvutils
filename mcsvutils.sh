@@ -524,6 +524,7 @@ action_start()
 		  --owner | -u
 		    実行時のユーザーを指定します。
 		    このオプションを指定するとプロファイルの設定を上書きします。
+		
 		__EOF
 	}
 	if [ "$helpflag" != "" ]; then
@@ -661,6 +662,7 @@ action_stop()
 		  --owner | -u
 		    実行時のユーザーを指定します。
 		    このオプションを指定するとプロファイルの設定を上書きします。
+		
 		__EOF
 	}
 	if [ "$helpflag" != "" ]; then
@@ -745,6 +747,7 @@ action_command()
 		  --owner | -u
 		    実行時のユーザーを指定します。
 		    このオプションを指定するとプロファイルの設定を上書きします。
+		
 		__EOF
 	}
 	if [ "$helpflag" != "" ]; then
@@ -834,7 +837,7 @@ action_mcversions()
 		  --old-beta
 		    old_betaタグの付いたバージョンをリストに含める
 		
-		クエリには正規表現を用いて結果を絞り込むことができます。
+		クエリに正規表現を用いて結果を絞り込むことができます。
 		__EOF
 	}
 	if [ "$helpflag" != "" ]; then
@@ -914,8 +917,7 @@ action_mcdownload()
 	{
 		cat <<- __EOF
 		mcdownloadはMinecraftサーバーのjarをダウンロードします。
-		<バージョン>に指定可能なものはmcversionsで確認可能です。
-		  $0 mcversions
+		<バージョン>に指定可能なものは$0 mcversionsで確認可能です。
 		__EOF
 	}
 	if [ "$helpflag" != "" ]; then
