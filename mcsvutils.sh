@@ -330,7 +330,7 @@ fetch_mcversions()
 	fi
 }
 
-dispatch_command()
+dispatch_mccommand()
 {
 	local profile_owner="$1"
 	shift
@@ -741,7 +741,7 @@ action_stop()
 		return $RESPONCE_NEGATIVE
 	fi
 	echo "mcsvutils: ${profile_name} を停止しています"
-	dispatch_command "$profile_owner" "$profile_name" stop
+	dispatch_mccommand "$profile_owner" "$profile_name" stop
 	sleep 5
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
@@ -833,7 +833,7 @@ action_command()
 	fi
 	echo "mcsvutils: ${profile_name} にコマンドを送信しています..."
 	echo "> $send_command"
-	dispatch_command "$profile_owner" "$profile_name" "$send_command"
+	dispatch_mccommand "$profile_owner" "$profile_name" "$send_command"
 	echo "mcsvutils: コマンドを送信しました"
 	sleep .1
 	echo "レスポンス:"
