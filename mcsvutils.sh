@@ -650,7 +650,7 @@ action_start()
 		invocations="\$invocations ${profile_args[@]}"
 	fi
 	screen -h 1024 -dmS "$profile_name" \$invocations
-	sleep 10
+	sleep .5
 	if screen -list "$profile_name" > /dev/null
 	then
 		echo "mcsvutils: ${profile_name} が起動しました"
