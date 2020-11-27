@@ -38,7 +38,7 @@ readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdo
 usage()
 {
 	cat <<- __EOF
-	使用法: $0 <アクション> [...]
+	使用法: $0 <アクション> [オプション] ...
 	使用可能なアクション: ${EXECUTABLE_ACTIONS[@]}
 	__EOF
 }
@@ -59,6 +59,11 @@ help()
 	  help        このヘルプを表示する
 
 	各コマンドの詳細なヘルプは各コマンドに--helpオプションを付けてください。
+
+	すべてのアクションに対し、次のオプションが使用できます。
+	  --help | -h 各アクションのヘルプを表示する
+	  --usage     各アクションの使用法を表示する
+	  --          以降のオプションのパースを行わない
 	__EOF
 }
 
