@@ -67,14 +67,15 @@ help()
 	__EOF
 }
 
-## Const ------------------------------
+## Const -------------------------------
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
 readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=1
-## ------------------------------------
+## -------------------------------------
 
+# Analyze arguments --------------------
 action=""
 if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
 	action="none"
@@ -274,12 +275,18 @@ do
 	args=("${args[@]}" "$1")
 	shift
 done
+# --------------------------------------
 
+# エラー出力にログ出力
+# $1..: echoする内容
 echoerr()
 {
 	echo "$*" >&2
 }
 
+# 指定ユーザーでコマンドを実行
+# $1: ユーザー
+# $2..: コマンド
 as_user()
 {
 	local user="$1"
@@ -292,6 +299,9 @@ as_user()
 	fi
 }
 
+# 指定ユーザーでスクリプトを実行
+# $1: ユーザー
+# note: 標準入力にコマンドを流すことでスクリプトを実行できる
 as_user_script()
 {
 	local user="$1"
@@ -302,6 +312,7 @@ as_user_script()
 	fi
 }
 
+# スクリプトの動作要件チェック
 check()
 {
 	check_installed()
@@ -322,14 +333,21 @@ check()
 	return $RESULT
 }
 
+# Minecraftバージョンマニフェストファイルの取得
+VERSION_MANIFEST=
 fetch_mcversions()
 {
 	VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION")
 	if ! [ $? ]; then
 		echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"
 	fi
+	return $RESPONCE_ERROR
 }
 
+# Minecraftコマンドを実行
+# $1: サーバー所有者
+# $2: サーバーのセッション名
+# $3..: 送信するコマンド
 dispatch_mccommand()
 {
 	local profile_owner="$1"
