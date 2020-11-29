@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "command")
+readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "attach" "command")
 
 usage()
 {
@@ -50,6 +50,7 @@ help()
 	  status      サーバーの状態を問い合わせる
 	  start       サーバーを起動する
 	  stop        サーバーを停止する
+	  attach      サーバーのコンソールに接続する
 	  command     サーバーにコマンドを送信する
 	  mcversions  minecraftのバージョンのリストを出力する
 	  mcdownload  minecraftサーバーをダウンロードする
@@ -140,7 +141,7 @@ do
 			shift
 			;;
 		--name)
-			if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
+			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
 				shift
 				nameflag="$1"
 			else
@@ -194,7 +195,7 @@ do
 			shift
 			;;
 		--owner)
-			if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
+			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
 				shift
 				ownerflag="$1"
 			else
@@ -527,6 +528,84 @@ action_status()
 		echo "mcsvutils: ${profile_name} は起動していません"
 		return $RESPONCE_NEGATIVE
 	fi
+}
+
+action_attach()
+{
+	usage()
+	{
+		cat <<- __EOF
+		  attach [オプション] <プロファイル>
+		  attach --name <名前> [オプション]
+		指定可能なオプション: -n -u --name --owner
+		__EOF
+	}
+	help()
+	{
+		cat <<- __EOF
+		attachはMinecraftサーバーのコンソールに接続します。
+		プロファイルには$0 createで作成したプロファイルのパスを指定します。
+
+		  --name | -n
+		    プロファイルの名前を指定します。
+		    プロファイルを指定しない場合のみ必須です。
+		    プロファイルを指定している場合はこのオプションを指定することはできません。
+		  --owner | -u
+		    実行時のユーザーを指定します。
+		    このオプションを指定するとプロファイルの設定を上書きします。
+		
+		接続するコンソールはscreenで作成したコンソールです。
+		そのため、コンソールの操作はscreenでのものと同じ(デタッチするにはCtrl+a,d)です。
+		指定したMinecraftサーバーが起動していない場合は $RESPONCE_NEGATIVE が返されます。
+		__EOF
+	}
+	if [ "$helpflag" != "" ]; then
+		version
+		echo
+		usage
+		echo
+		help
+		return
+	elif [ "$usageflag" != "" ]; then
+		usage
+		return
+	fi
+	local profile_name=""
+	local profile_owner=""
+	if [ ${#args[@]} -ne 0 ]; then
+		local profile_file
+		profile_file="${args[0]}"
+		if [ "$nameflag" != "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+			return $RESPONCE_ERROR
+		fi
+		if ! [ -e "$profile_file" ]; then
+			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$(jq -r ".name | strings" "$profile_file")
+		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		profile_owner=$(jq -r ".owner | strings" "$profile_file")
+		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	else
+		if [ "$nameflag" = "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$nameflag
+	fi
+	if [ "$ownerflag" != "" ]; then
+		profile_owner=$ownerflag
+	fi
+	if [ "$profile_owner" = "" ]; then
+		profile_owner="$(whoami)"
+	fi
+	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
+	then
+		echo "mcsvutils: ${profile_name} は起動していません"
+		return $RESPONCE_NEGATIVE
+	fi
+	as_user "$profile_owner" "screen -r \"$profile_name\""
 }
 
 action_start()
