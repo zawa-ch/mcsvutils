@@ -33,12 +33,12 @@ version()
 	__EOF
 }
 
-readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "command")
+readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "attach" "command")
 
 usage()
 {
 	cat <<- __EOF
-	使用法: $0 <アクション> [...]
+	使用法: $0 <アクション> [オプション] ...
 	使用可能なアクション: ${EXECUTABLE_ACTIONS[@]}
 	__EOF
 }
@@ -50,6 +50,7 @@ help()
 	  status      サーバーの状態を問い合わせる
 	  start       サーバーを起動する
 	  stop        サーバーを停止する
+	  attach      サーバーのコンソールに接続する
 	  command     サーバーにコマンドを送信する
 	  mcversions  minecraftのバージョンのリストを出力する
 	  mcdownload  minecraftサーバーをダウンロードする
@@ -59,17 +60,60 @@ help()
 	  help        このヘルプを表示する
 
 	各コマンドの詳細なヘルプは各コマンドに--helpオプションを付けてください。
+
+	すべてのアクションに対し、次のオプションが使用できます。
+	  --help | -h 各アクションのヘルプを表示する
+	  --usage     各アクションの使用法を表示する
+	  --          以降のオプションのパースを行わない
 	__EOF
 }
 
-## Const ------------------------------
+## Const -------------------------------
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
 readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=1
-## ------------------------------------
+## -------------------------------------
 
+## Variables ---------------------------
+# ビルトインモード設定
+# 0以外の値に設定し、下の設定を変更することでプロファイルデータを使用しない「ビルトインモード」としてスクリプトを構成できます。
+# ビルトインモードの場合、プロファイルの作成・読み込みができなくなります。
+readonly SETTING_BUILT_IN_MODE=0
+# サービス名
+# ビルトインモードとしてスクリプトを構成する場合の、サービス名を指定します。
+# プロファイルでの --name オプションと同じ働きをします。
+# ビルトインモードを実行する場合は必須です。
+readonly SETTING_SERVICE_NAME="mcserver"
+# 実行jarファイル
+# ビルトインモードとしてスクリプトを構成する場合の、実行するjarファイルを指定します。
+# プロファイルでの --execute オプションと同じ働きをします。
+# ビルトインモードを実行する場合は必須です。
+readonly SETTING_SERVICE_EXECUTE=""
+# 実行オプション
+# ビルトインモードとしてスクリプトを構成する場合の、javaに渡す引数を指定します。
+# プロファイルでの --option オプションと同じ働きをします。
+readonly SETTING_SERVICE_OPTIONS=()
+# jar呼び出し引数
+# ビルトインモードとしてスクリプトを構成する場合の、jarに渡す引数を指定します。
+# プロファイルでの --args オプションと同じ働きをします。
+readonly SETTING_SERVICE_ARGS=()
+# 作業ディレクトリ
+# ビルトインモードとしてスクリプトを構成する場合の、作業ディレクトリを指定します。
+# プロファイルでの --cwd オプションと同じ働きをします。
+readonly SETTING_SERVICE_CWD="./"
+# java環境
+# ビルトインモードとしてスクリプトを構成する場合の、java実行環境を指定します。
+# プロファイルでの --java オプションと同じ働きをします。
+readonly SETTING_SERVICE_JRE=""
+# サービス所有者
+# ビルトインモードとしてスクリプトを構成する場合の、サービス所有者を指定します。
+# プロファイルでの --owner オプションと同じ働きをします。
+readonly SETTING_SERVICE_OWNER=""
+## -------------------------------------
+
+# Analyze arguments --------------------
 action=""
 if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
 	action="none"
@@ -88,6 +132,9 @@ echo_invalid_flag()
 	echo "mcsvutils: [W] 無効なオプション $1 が指定されています" >&2
 	echo "通常の引数として読み込ませる場合は先に -- を使用してください" >&2
 }
+
+declare -a optionflag=()
+declare -a argsflag=()
 
 declare -a args=()
 while (( $# > 0 ))
@@ -134,7 +181,7 @@ do
 			shift
 			;;
 		--name)
-			if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
+			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
 				shift
 				nameflag="$1"
 			else
@@ -154,7 +201,7 @@ do
 		--option)
 			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
 				shift
-				optionflag="$1"
+				optionflag+=("$1")
 			else
 				echo_invalid_flag "$1"
 			fi
@@ -163,7 +210,7 @@ do
 		--args)
 			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
 				shift
-				argsflag="$1"
+				argsflag+=("$1")
 			else
 				echo_invalid_flag "$1"
 			fi
@@ -188,7 +235,7 @@ do
 			shift
 			;;
 		--owner)
-			if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
+			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
 				shift
 				ownerflag="$1"
 			else
@@ -269,12 +316,18 @@ do
 	args=("${args[@]}" "$1")
 	shift
 done
+# --------------------------------------
 
+# エラー出力にログ出力
+# $1..: echoする内容
 echoerr()
 {
 	echo "$*" >&2
 }
 
+# 指定ユーザーでコマンドを実行
+# $1: ユーザー
+# $2..: コマンド
 as_user()
 {
 	local user="$1"
@@ -287,6 +340,9 @@ as_user()
 	fi
 }
 
+# 指定ユーザーでスクリプトを実行
+# $1: ユーザー
+# note: 標準入力にコマンドを流すことでスクリプトを実行できる
 as_user_script()
 {
 	local user="$1"
@@ -297,6 +353,7 @@ as_user_script()
 	fi
 }
 
+# スクリプトの動作要件チェック
 check()
 {
 	check_installed()
@@ -317,21 +374,120 @@ check()
 	return $RESULT
 }
 
+# Minecraftバージョンマニフェストファイルの取得
+VERSION_MANIFEST=
 fetch_mcversions()
 {
 	VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION")
 	if ! [ $? ]; then
 		echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"
 	fi
+	return $RESPONCE_ERROR
 }
 
-dispatch_command()
+# Minecraftコマンドを実行
+# $1: サーバー所有者
+# $2: サーバーのセッション名
+# $3..: 送信するコマンド
+dispatch_mccommand()
 {
 	local profile_owner="$1"
 	shift
 	local profile_name="$1"
 	shift
 	as_user "$profile_owner" "screen -p 0 -S $profile_name -X eval 'stuff \"$*\"\015'"
+}
+
+profile_file=""
+profile_version=""
+profile_name=""
+profile_execute=""
+profile_options=""
+profile_args=""
+profile_cwd=""
+profile_java=""
+profile_owner=""
+if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then
+	profile_name="$SETTING_SERVICE_NAME"
+	profile_execute="$SETTING_SERVICE_EXECUTE"
+	profile_options=("${SETTING_SERVICE_OPTIONS[@]}")
+	profile_args=("${SETTING_SERVICE_ARGS[@]}")
+	profile_cwd="$SETTING_SERVICE_CWD"
+	profile_java="$SETTING_SERVICE_JRE"
+	profile_owner="$SETTING_SERVICE_OWNER"
+fi
+
+# プロファイルを読み込み
+profile_load()
+{
+	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; fi
+	if ! [ -e "$profile_file" ]; then
+		echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
+		return $RESPONCE_ERROR
+	fi
+	profile_version=$(jq -r ".version | numbers" "$profile_file")
+	if ! [ $? ] || [ "$profile_version" != "$DATA_VERSION" ]; then echoerr "mcsvutils: [E] 対応していないプロファイルのバージョンです"; return $RESPONCE_ERROR; fi
+	profile_name=$(jq -r ".name | strings" "$profile_file")
+	if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_execute=$(jq -r ".execute | strings" "$profile_file")
+	if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	for item in $(jq -r ".options[]" "$profile_file")
+	do
+		profile_options+=("$item")
+	done
+	for item in $(jq -r ".args[]" "$profile_file")
+	do
+		profile_args+=("$item")
+	done
+	profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_java=$(jq -r ".javapath | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_owner=$(jq -r ".owner | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+}
+
+# プロファイルを生成・保存
+profile_save()
+{
+	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; fi
+	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$profile_name\", execute: \"$profile_execute\" }")
+	local options="[]"
+	if [ ${#profile_options[@]} -ne 0 ]; then
+		for item in "${profile_options[@]}"
+		do
+			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
+		done
+	fi
+	result=$(echo "$result" | jq -c "setpath( [\"options\"]; $options)")
+	local options="[]"
+	if [ "${#profile_args[@]}" -ne 0 ]; then
+		for item in "${profile_args[@]}"
+		do
+			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
+		done
+	fi
+	result=$(echo "$result" | jq -c "setpath( [\"args\"]; $options)")
+	if [ "$cwdflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; \"$profile_cwd\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; null)")
+	fi
+	if [ "$javaflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; \"$profile_java\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; null)")
+	fi
+	if [ "$ownerflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; \"$profile_owner\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; null)")
+	fi
+	if [ "$profile_file" != "" ]; then
+		echo "$result" > "$profile_file"
+	else
+		echo "$result"
+	fi
 }
 
 action_create()
@@ -347,6 +503,7 @@ action_create()
 	{
 		cat <<- __EOF
 		createはMinecraftサーバーのプロファイルを作成します。
+		このアクションはビルトインモードでは実行できません。
 
 		  --name | -n (必須)
 		    プロファイルの名前を指定します。
@@ -380,52 +537,29 @@ action_create()
 		usage
 		return
 	fi
+	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; fi
 	local result
 	if [ "$nameflag" = "" ]; then
 		echoerr "mcsvutils: [E] --nameは必須です"
 		return $RESPONCE_ERROR
 	fi
+	profile_name="$nameflag"
 	if [ "$executeflag" = "" ]; then
 		echoerr "mcsvutils: [E] --executeは必須です"
 		return $RESPONCE_ERROR
 	fi
-	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$nameflag\", execute: \"$executeflag\" }")
-	local options="[]"
-	if [ "$optionflag" != "" ]; then
-		for item in $optionflag
-		do
-			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
-		done
-	fi
-	result=$(echo "$result" | jq -c "setpath( [\"options\"]; $options)")
-	local options="[]"
-	if [ "$argsflag" != "" ]; then
-		for item in $argsflag
-		do
-			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
-		done
-	fi
-	result=$(echo "$result" | jq -c "setpath( [\"args\"]; $options)")
-	if [ "$cwdflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; \"$cwdflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; null)")
-	fi
-	if [ "$javaflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; \"$javaflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; null)")
-	fi
-	if [ "$ownerflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; \"$ownerflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; null)")
-	fi
+	profile_execute="$executeflag"
+	profile_options=("${optionflag[@]}")
+	profile_args=("${argsflag[@]}")
+	profile_cwd="$cwdflag"
+	profile_java="$javaflag"
+	profile_owner="$ownerflag"
 	if [ "${args[0]}" != "" ]; then
-		echo "$result" > "${args[0]}"
+		profile_file="${args[0]}"
 	else
-		echo "$result"
+		profile_file=""
 	fi
+	profile_save
 }
 
 action_status()
@@ -466,29 +600,28 @@ action_status()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_owner=""
-	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
-		profile_file="${args[0]}"
-		if [ "$nameflag" != "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
-			return $RESPONCE_ERROR
+	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+		if [ ${#args[@]} -ne 0 ]; then
+			profile_file="${args[0]}"
+			if [ "$nameflag" != "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+				return $RESPONCE_ERROR
+			fi
+			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+		else
+			if [ "$nameflag" = "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+				return $RESPONCE_ERROR
+			fi
+			profile_name=$nameflag
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
-		if [ "$nameflag" = "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$nameflag
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
+	fi
+	if [ "$profile_name" == "" ]; then
+		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
+		return $RESPONCE_ERROR
 	fi
 	if [ "$ownerflag" != "" ]; then
 		profile_owner=$ownerflag
@@ -504,6 +637,83 @@ action_status()
 		echo "mcsvutils: ${profile_name} は起動していません"
 		return $RESPONCE_NEGATIVE
 	fi
+}
+
+action_attach()
+{
+	usage()
+	{
+		cat <<- __EOF
+		  attach [オプション] <プロファイル>
+		  attach --name <名前> [オプション]
+		指定可能なオプション: -n -u --name --owner
+		__EOF
+	}
+	help()
+	{
+		cat <<- __EOF
+		attachはMinecraftサーバーのコンソールに接続します。
+		プロファイルには$0 createで作成したプロファイルのパスを指定します。
+
+		  --name | -n
+		    プロファイルの名前を指定します。
+		    プロファイルを指定しない場合のみ必須です。
+		    プロファイルを指定している場合はこのオプションを指定することはできません。
+		  --owner | -u
+		    実行時のユーザーを指定します。
+		    このオプションを指定するとプロファイルの設定を上書きします。
+		
+		接続するコンソールはscreenで作成したコンソールです。
+		そのため、コンソールの操作はscreenでのものと同じ(デタッチするにはCtrl+a,d)です。
+		指定したMinecraftサーバーが起動していない場合は $RESPONCE_NEGATIVE が返されます。
+		__EOF
+	}
+	if [ "$helpflag" != "" ]; then
+		version
+		echo
+		usage
+		echo
+		help
+		return
+	elif [ "$usageflag" != "" ]; then
+		usage
+		return
+	fi
+	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+		if [ ${#args[@]} -ne 0 ]; then
+			profile_file="${args[0]}"
+			if [ "$nameflag" != "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+				return $RESPONCE_ERROR
+			fi
+			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+		else
+			if [ "$nameflag" = "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+				return $RESPONCE_ERROR
+			fi
+			profile_name=$nameflag
+		fi
+	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
+	fi
+	if [ "$profile_name" == "" ]; then
+		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
+		return $RESPONCE_ERROR
+	fi
+	if [ "$ownerflag" != "" ]; then
+		profile_owner=$ownerflag
+	fi
+	if [ "$profile_owner" = "" ]; then
+		profile_owner="$(whoami)"
+	fi
+	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
+	then
+		echo "mcsvutils: ${profile_name} は起動していません"
+		return $RESPONCE_NEGATIVE
+	fi
+	as_user "$profile_owner" "screen -r \"$profile_name\""
 }
 
 action_start()
@@ -562,55 +772,39 @@ action_start()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_execute=""
-	local profile_options=()
-	local profile_args=()
-	local profile_cwd=""
-	local profile_java=""
-	local profile_owner=""
-	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
-		profile_file="${args[0]}"
-		if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
-			return $RESPONCE_ERROR
+	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+		if [ ${#args[@]} -ne 0 ]; then
+			profile_file="${args[0]}"
+			if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
+				return $RESPONCE_ERROR
+			fi
+			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+		else
+			if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
+				return $RESPONCE_ERROR
+			fi
+			profile_name=$nameflag
+			profile_execute=$executeflag
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_execute=$(jq -r ".execute | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		for item in $(jq -r ".options[]" "$profile_file")
-		do
-			profile_options+=("$item")
-		done
-		for item in $(jq -r ".args[]" "$profile_file")
-		do
-			profile_args+=("$item")
-		done
-		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_java=$(jq -r ".javapath | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
-		if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$nameflag
-		profile_execute=$executeflag
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 	fi
-	if [ "$optionflag" != "" ]; then
-		profile_options=("$optionflag")
+	if [ "$profile_name" == "" ]; then
+		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
+		return $RESPONCE_ERROR
 	fi
-	if [ "$argsflag" != "" ]; then
-		profile_args=("$argsflag")
+	if [ "$profile_execute" == "" ]; then
+		echoerr "mcsvctrl: [E] 実行するjarファイルが指定されていません"
+		return $RESPONCE_ERROR
+	fi
+	if [ "${#optionflag[@]}" -ne 0 ]; then
+		profile_options=("${optionflag[@]}")
+	fi
+	if [ "${#argsflag[@]}" -ne 0 ]; then
+		profile_args=("${argsflag[@]}")
 	fi
 	if [ "$cwdflag" != "" ]; then
 		profile_cwd=$cwdflag
@@ -650,7 +844,7 @@ action_start()
 		invocations="\$invocations ${profile_args[@]}"
 	fi
 	screen -h 1024 -dmS "$profile_name" \$invocations
-	sleep 10
+	sleep .5
 	if screen -list "$profile_name" > /dev/null
 	then
 		echo "mcsvutils: ${profile_name} が起動しました"
@@ -700,29 +894,28 @@ action_stop()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_owner=""
-	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
-		profile_file="${args[0]}"
-		if [ "$nameflag" != "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
-			return $RESPONCE_ERROR
+	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+		if [ ${#args[@]} -ne 0 ]; then
+			profile_file="${args[0]}"
+			if [ "$nameflag" != "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+				return $RESPONCE_ERROR
+			fi
+			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+		else
+			if [ "$nameflag" = "" ]; then
+				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+				return $RESPONCE_ERROR
+			fi
+			profile_name=$nameflag
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
 	else
-		if [ "$nameflag" = "" ]; then
-			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$nameflag
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
+	fi
+	if [ "$profile_name" == "" ]; then
+		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
+		return $RESPONCE_ERROR
 	fi
 	if [ "$ownerflag" != "" ]; then
 		profile_owner=$ownerflag
@@ -736,8 +929,14 @@ action_stop()
 		return $RESPONCE_NEGATIVE
 	fi
 	echo "mcsvutils: ${profile_name} を停止しています"
-	dispatch_command "$profile_owner" "$profile_name" stop
-	sleep 5
+	dispatch_mccommand "$profile_owner" "$profile_name" stop
+	as_user_script "$profile_owner" <<- __EOF
+	trap 'echo "mcsvutils: SIGINTを検出しました。処理は中断しますが、遅れてサービスが停止する可能性はあります…"; exit $RESPONCE_ERROR' 2
+	while screen -list "$profile_name" > /dev/null
+	do
+		sleep 1
+	done
+	__EOF
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
 		echo "mcsvutils: ${profile_name} が停止しました"
@@ -785,31 +984,27 @@ action_command()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_cwd=""
-	local profile_owner=""
 	local send_command
-	if [ "$nameflag" = "" ]; then
-		local profile_file
-		profile_file="${args[0]}"
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
+	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+		if [ "$nameflag" = "" ]; then
+			profile_file="${args[0]}"
+			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+			for index in $(seq 1 $((${#args[@]} - 1)) )
+			do
+				send_command="$send_command${args[$index]} "
+			done
+		else
+			profile_name=$nameflag
+			send_command="${args[*]}"
 		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		if [ "$profile_cwd" = "" ]; then profile_cwd="./"; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		for index in $(seq 1 $((${#args[@]} - 1)) )
-		do
-			send_command="$send_command${args[$index]} "
-		done
 	else
-		profile_name=$nameflag
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 		send_command="${args[*]}"
+	fi
+	if [ "$profile_name" == "" ]; then
+		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
+		return $RESPONCE_ERROR
 	fi
 	if [ "$ownerflag" != "" ]; then
 		profile_owner=$ownerflag
@@ -828,7 +1023,7 @@ action_command()
 	fi
 	echo "mcsvutils: ${profile_name} にコマンドを送信しています..."
 	echo "> $send_command"
-	dispatch_command "$profile_owner" "$profile_name" "$send_command"
+	dispatch_mccommand "$profile_owner" "$profile_name" "$send_command"
 	echo "mcsvutils: コマンドを送信しました"
 	sleep .1
 	echo "レスポンス:"
