@@ -96,6 +96,9 @@ echo_invalid_flag()
 	echo "通常の引数として読み込ませる場合は先に -- を使用してください" >&2
 }
 
+declare -a optionflag=()
+declare -a argsflag=()
+
 declare -a args=()
 while (( $# > 0 ))
 do
@@ -161,7 +164,7 @@ do
 		--option)
 			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
 				shift
-				optionflag="$1"
+				optionflag+=("$1")
 			else
 				echo_invalid_flag "$1"
 			fi
@@ -170,7 +173,7 @@ do
 		--args)
 			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
 				shift
-				argsflag="$1"
+				argsflag+=("$1")
 			else
 				echo_invalid_flag "$1"
 			fi
@@ -358,6 +361,87 @@ dispatch_mccommand()
 	as_user "$profile_owner" "screen -p 0 -S $profile_name -X eval 'stuff \"$*\"\015'"
 }
 
+profile_file=""
+profile_version=""
+profile_name=""
+profile_execute=""
+profile_options=""
+profile_args=""
+profile_cwd=""
+profile_java=""
+profile_owner=""
+
+# プロファイルを読み込み
+profile_load()
+{
+	if ! [ -e "$profile_file" ]; then
+		echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
+		return $RESPONCE_ERROR
+	fi
+	profile_version=$(jq -r ".version | numbers" "$profile_file")
+	if ! [ $? ] || [ "$profile_version" != "$DATA_VERSION" ]; then echoerr "mcsvutils: [E] 対応していないプロファイルのバージョンです"; return $RESPONCE_ERROR; fi
+	profile_name=$(jq -r ".name | strings" "$profile_file")
+	if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_execute=$(jq -r ".execute | strings" "$profile_file")
+	if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	for item in $(jq -r ".options[]" "$profile_file")
+	do
+		profile_options+=("$item")
+	done
+	for item in $(jq -r ".args[]" "$profile_file")
+	do
+		profile_args+=("$item")
+	done
+	profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_java=$(jq -r ".javapath | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+	profile_owner=$(jq -r ".owner | strings" "$profile_file")
+	if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+}
+
+# プロファイルを生成・保存
+profile_save()
+{
+	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$profile_name\", execute: \"$profile_execute\" }")
+	local options="[]"
+	if [ ${#profile_options[@]} -ne 0 ]; then
+		for item in "${profile_options[@]}"
+		do
+			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
+		done
+	fi
+	result=$(echo "$result" | jq -c "setpath( [\"options\"]; $options)")
+	local options="[]"
+	if [ "${#profile_args[@]}" -ne 0 ]; then
+		for item in "${profile_args[@]}"
+		do
+			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
+		done
+	fi
+	result=$(echo "$result" | jq -c "setpath( [\"args\"]; $options)")
+	if [ "$cwdflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; \"$profile_cwd\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; null)")
+	fi
+	if [ "$javaflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; \"$profile_java\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; null)")
+	fi
+	if [ "$ownerflag" != "" ]; then
+		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; \"$profile_owner\")")
+	else
+		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; null)")
+	fi
+	if [ "$profile_file" != "" ]; then
+		echo "$result" > "$profile_file"
+	else
+		echo "$result"
+	fi
+}
+
 action_create()
 {
 	usage()
@@ -409,47 +493,23 @@ action_create()
 		echoerr "mcsvutils: [E] --nameは必須です"
 		return $RESPONCE_ERROR
 	fi
+	profile_name="$nameflag"
 	if [ "$executeflag" = "" ]; then
 		echoerr "mcsvutils: [E] --executeは必須です"
 		return $RESPONCE_ERROR
 	fi
-	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$nameflag\", execute: \"$executeflag\" }")
-	local options="[]"
-	if [ "$optionflag" != "" ]; then
-		for item in $optionflag
-		do
-			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
-		done
-	fi
-	result=$(echo "$result" | jq -c "setpath( [\"options\"]; $options)")
-	local options="[]"
-	if [ "$argsflag" != "" ]; then
-		for item in $argsflag
-		do
-			options=$(echo "$options" | jq -c ". + [ \"$item\" ]")
-		done
-	fi
-	result=$(echo "$result" | jq -c "setpath( [\"args\"]; $options)")
-	if [ "$cwdflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; \"$cwdflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"cwd\"]; null)")
-	fi
-	if [ "$javaflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; \"$javaflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"javapath\"]; null)")
-	fi
-	if [ "$ownerflag" != "" ]; then
-		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; \"$ownerflag\")")
-	else
-		result=$(echo "$result" | jq -c "setpath( [\"owner\"]; null)")
-	fi
+	profile_execute="$executeflag"
+	profile_options=("${optionflag[@]}")
+	profile_args=("${argsflag[@]}")
+	profile_cwd="$cwdflag"
+	profile_java="$javaflag"
+	profile_owner="$ownerflag"
 	if [ "${args[0]}" != "" ]; then
-		echo "$result" > "${args[0]}"
+		profile_file="${args[0]}"
 	else
-		echo "$result"
+		profile_file=""
 	fi
+	profile_save
 }
 
 action_status()
@@ -490,8 +550,6 @@ action_status()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_owner=""
 	if [ ${#args[@]} -ne 0 ]; then
 		local profile_file
 		profile_file="${args[0]}"
@@ -499,14 +557,7 @@ action_status()
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
 			return $RESPONCE_ERROR
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
@@ -579,14 +630,7 @@ action_attach()
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
 			return $RESPONCE_ERROR
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
@@ -678,28 +722,7 @@ action_start()
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
 			return $RESPONCE_ERROR
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_execute=$(jq -r ".execute | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_execute" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		for item in $(jq -r ".options[]" "$profile_file")
-		do
-			profile_options+=("$item")
-		done
-		for item in $(jq -r ".args[]" "$profile_file")
-		do
-			profile_args+=("$item")
-		done
-		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_java=$(jq -r ".javapath | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
@@ -708,11 +731,11 @@ action_start()
 		profile_name=$nameflag
 		profile_execute=$executeflag
 	fi
-	if [ "$optionflag" != "" ]; then
-		profile_options=("$optionflag")
+	if [ "${#optionflag[@]}" -ne 0 ]; then
+		profile_options=("${optionflag[@]}")
 	fi
-	if [ "$argsflag" != "" ]; then
-		profile_args=("$argsflag")
+	if [ "${#argsflag[@]}" -ne 0 ]; then
+		profile_args=("${argsflag[@]}")
 	fi
 	if [ "$cwdflag" != "" ]; then
 		profile_cwd=$cwdflag
@@ -811,14 +834,7 @@ action_stop()
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
 			return $RESPONCE_ERROR
 		fi
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
 		if [ "$nameflag" = "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
@@ -894,17 +910,7 @@ action_command()
 	if [ "$nameflag" = "" ]; then
 		local profile_file
 		profile_file="${args[0]}"
-		if ! [ -e "$profile_file" ]; then
-			echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-			return $RESPONCE_ERROR
-		fi
-		profile_name=$(jq -r ".name | strings" "$profile_file")
-		if ! [ $? ] || [ "$profile_name" = "" ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		profile_cwd=$(jq -r ".cwd | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
-		if [ "$profile_cwd" = "" ]; then profile_cwd="./"; fi
-		profile_owner=$(jq -r ".owner | strings" "$profile_file")
-		if ! [ $? ]; then echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 		for index in $(seq 1 $((${#args[@]} - 1)) )
 		do
 			send_command="$send_command${args[$index]} "
