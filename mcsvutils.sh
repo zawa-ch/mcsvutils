@@ -3,7 +3,7 @@
 : <<- __License
 MIT License
 
-Copyright (c) 2020 zawa-ch.
+Copyright (c) 2020,2021 zawa-ch.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,8 +28,8 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.1.0 2020-11-24
-	Copyright 2020 zawa-ch.
+	version 0.2.0 2021-01-03
+	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
 
