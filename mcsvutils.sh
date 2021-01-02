@@ -551,7 +551,6 @@ action_status()
 		return
 	fi
 	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
@@ -621,10 +620,7 @@ action_attach()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_owner=""
 	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
@@ -708,15 +704,7 @@ action_start()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_execute=""
-	local profile_options=()
-	local profile_args=()
-	local profile_cwd=""
-	local profile_java=""
-	local profile_owner=""
 	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
@@ -825,10 +813,7 @@ action_stop()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_owner=""
 	if [ ${#args[@]} -ne 0 ]; then
-		local profile_file
 		profile_file="${args[0]}"
 		if [ "$nameflag" != "" ]; then
 			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
@@ -903,12 +888,8 @@ action_command()
 		usage
 		return
 	fi
-	local profile_name=""
-	local profile_cwd=""
-	local profile_owner=""
 	local send_command
 	if [ "$nameflag" = "" ]; then
-		local profile_file
 		profile_file="${args[0]}"
 		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 		for index in $(seq 1 $((${#args[@]} - 1)) )
