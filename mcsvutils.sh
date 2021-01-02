@@ -918,7 +918,13 @@ action_stop()
 	fi
 	echo "mcsvutils: ${profile_name} を停止しています"
 	dispatch_mccommand "$profile_owner" "$profile_name" stop
-	sleep 5
+	as_user_script "$profile_owner" <<- __EOF
+	trap 'echo "mcsvutils: SIGINTを検出しました。処理は中断しますが、遅れてサービスが停止する可能性はあります…"; exit $RESPONCE_ERROR' 2
+	while screen -list "$profile_name" > /dev/null
+	do
+		sleep 1
+	done
+	__EOF
 	if ! as_user "$profile_owner" "screen -list \"$profile_name\"" > /dev/null
 	then
 		echo "mcsvutils: ${profile_name} が停止しました"
