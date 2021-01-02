@@ -615,6 +615,9 @@ action_status()
 			fi
 			profile_name=$nameflag
 		fi
+	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -691,6 +694,9 @@ action_attach()
 			fi
 			profile_name=$nameflag
 		fi
+	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -782,6 +788,9 @@ action_start()
 			profile_name=$nameflag
 			profile_execute=$executeflag
 		fi
+	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -900,6 +909,9 @@ action_stop()
 			fi
 			profile_name=$nameflag
 		fi
+	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -986,6 +998,8 @@ action_command()
 			send_command="${args[*]}"
 		fi
 	else
+		echo "mcsvutils: ビルトインモードで実行しています"
+		echo "  サービス名: $profile_name"
 		send_command="${args[*]}"
 	fi
 	if [ "$profile_name" == "" ]; then
