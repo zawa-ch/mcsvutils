@@ -28,7 +28,7 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.2.0 2021-01-03
+	version 0.2.1 2021-07-04
 	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
@@ -65,6 +65,15 @@ help()
 	  --help | -h 各アクションのヘルプを表示する
 	  --usage     各アクションの使用法を表示する
 	  --          以降のオプションのパースを行わない
+	__EOF
+}
+
+oncheckfail()
+{
+	cat >&2 <<- __EOF
+	mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください。
+	    このスクリプトを実行するために必要なソフトウェアは以下のとおりです:
+	    bash sudo wget curl jq screen
 	__EOF
 }
 
@@ -361,16 +370,11 @@ check()
 		bash -c "$1 --version" > /dev/null
 	}
 	local RESULT=0
-	check_installed sudo
-	RESULT=$(($? | RESULT))
-	check_installed wget
-	RESULT=$(($? | RESULT))
-	check_installed curl
-	RESULT=$(($? | RESULT))
-	check_installed jq
-	RESULT=$(($? | RESULT))
-	check_installed screen
-	RESULT=$(($? | RESULT))
+	check_installed sudo || RESULT=$RESPONCE_NEGATIVE
+	check_installed wget || RESULT=$RESPONCE_NEGATIVE
+	check_installed curl || RESULT=$RESPONCE_NEGATIVE
+	check_installed jq || RESULT=$RESPONCE_NEGATIVE
+	check_installed screen || RESULT=$RESPONCE_NEGATIVE
 	return $RESULT
 }
 
@@ -419,11 +423,8 @@ fi
 # プロファイルを読み込み
 profile_load()
 {
-	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; fi
-	if ! [ -e "$profile_file" ]; then
-		echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"
-		return $RESPONCE_ERROR
-	fi
+	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; }
+	[ -e "$profile_file" ] || { echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"; return $RESPONCE_ERROR; }
 	profile_version=$(jq -r ".version | numbers" "$profile_file")
 	if ! [ $? ] || [ "$profile_version" != "$DATA_VERSION" ]; then echoerr "mcsvutils: [E] 対応していないプロファイルのバージョンです"; return $RESPONCE_ERROR; fi
 	profile_name=$(jq -r ".name | strings" "$profile_file")
@@ -449,7 +450,7 @@ profile_load()
 # プロファイルを生成・保存
 profile_save()
 {
-	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; fi
+	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; }
 	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$profile_name\", execute: \"$profile_execute\" }")
 	local options="[]"
 	if [ ${#profile_options[@]} -ne 0 ]; then
@@ -536,7 +537,7 @@ action_create()
 		usage
 		return
 	fi
-	if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; fi
+	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; }
 	local result
 	if [ "$nameflag" = "" ]; then
 		echoerr "mcsvutils: [E] --nameは必須です"
@@ -1134,10 +1135,7 @@ action_mcdownload()
 		usage
 		return
 	fi
-	if ! check; then
-		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました"
-		echoerr "必要なパッケージがインストールされているか確認してください"
-	fi
+	check || { echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"; return $RESPONCE_ERROR; }
 	fetch_mcversions
 	if [ ${#args[@]} -lt 1 ]; then
 		echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
