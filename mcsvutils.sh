@@ -28,12 +28,12 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.2.1 2021-07-04
+	version 0.3.0 2021-07-20
 	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
 
-readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "attach" "command")
+readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "create" "status" "start" "stop" "attach" "command")
 
 usage()
 {
@@ -79,6 +79,7 @@ oncheckfail()
 
 ## Const -------------------------------
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
+readonly SPIGOT_BUILDTOOLS_LOCATION='https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
 readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
@@ -1175,6 +1176,67 @@ action_mcdownload()
 		echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
 		return $RESPONCE_ERROR
 	fi
+}
+
+action_spigotbuild()
+{
+	usage()
+	{
+		cat <<- __EOF
+		使用法: $0 spigotbuild <バージョン> [保存先]
+		__EOF
+	}
+	help()
+	{
+		cat <<- __EOF
+		mcdownloadはSpigotサーバーのビルドツールをダウンロードし、Minecraftサーバーからビルドします。
+		<バージョン>に指定可能なものは https://www.spigotmc.org/wiki/buildtools/#versions を確認してください。
+		__EOF
+	}
+	if [ "$helpflag" != "" ]; then
+		version
+		echo
+		usage
+		echo
+		help
+		return
+	elif [ "$usageflag" != "" ]; then
+		usage
+		return
+	fi
+	check || {
+		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました"
+		echoerr "必要なパッケージがインストールされているか確認してください"
+		return $RESPONCE_ERROR
+	}
+	[ ${#args[@]} -lt 1 ] && {
+		echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"
+		return $RESPONCE_ERROR
+	}
+	[ -e "BuildTools.jar" ] || {
+		wget "$SPIGOT_BUILDTOOLS_LOCATION" || {
+			echoerr "[E] BuildTools.jar のダウンロードに失敗しました"
+			return $RESPONCE_ERROR
+		}
+	}
+	local selected_version="${args[0]}"
+	java -jar BuildTools.jar --rev "$selected_version" || {
+		echoerr "[E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"
+		return $RESPONCE_ERROR
+	}
+	[ ${#args[@]} -ge 2 ] && {
+		local destination=${args[1]}
+		if [ -e "./spigot-${selected_version}.jar" ]; then
+			mv "./spigot-${selected_version}.jar" "$destination" || {
+				echoerr "[E] jarファイルの移動に失敗しました。"
+				return $RESPONCE_ERROR
+			}
+			return $RESPONCE_POSITIVE
+		else
+			echoerr "[W] jarファイルの自動探索に失敗しました。ファイルは移動されません。"
+			return $RESPONCE_NEGATIVE
+		fi
+	}
 }
 
 action_check()
