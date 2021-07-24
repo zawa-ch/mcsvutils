@@ -78,50 +78,61 @@ oncheckfail()
 }
 
 ## Const -------------------------------
-readonly TEMP=/tmp
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
 readonly SPIGOT_BUILDTOOLS_LOCATION='https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
 readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=1
+readonly SCRIPT_LOCATION
+SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)" || {
+	echo "mcsvutils: [E] スクリプトが置かれているディレクトリを検出できませんでした。" >&2
+	exit $RESPONCE_ERROR
+}
 ## -------------------------------------
 
 ## Variables ---------------------------
+# 一時ディレクトリ設定
+# 一時ディレクトリの場所を設定します。
+# 通常は"/tmp"で問題ありません。
+[ -z "$TEMP" ] && readonly TEMP="/tmp"
+# Minecraftバージョン管理ディレクトリ設定
+# Minecraftバージョンの管理を行うためのディレクトリを設定します。
+[ -z "$MCSVUTILS_VERSIONS_LOCATION" ] && readonly MCSVUTILS_VERSIONS_LOCATION="$SCRIPT_LOCATION/versions"
 # ビルトインモード設定
 # 0以外の値に設定し、下の設定を変更することでプロファイルデータを使用しない「ビルトインモード」としてスクリプトを構成できます。
 # ビルトインモードの場合、プロファイルの作成・読み込みができなくなります。
-readonly SETTING_BUILT_IN_MODE=0
+readonly MCSVUTILS_BUILTINMODE=0
 # サービス名
 # ビルトインモードとしてスクリプトを構成する場合の、サービス名を指定します。
 # プロファイルでの --name オプションと同じ働きをします。
 # ビルトインモードを実行する場合は必須です。
-readonly SETTING_SERVICE_NAME="mcserver"
+readonly MCSVUTILS_SERVICE_NAME="mcserver"
 # 実行jarファイル
 # ビルトインモードとしてスクリプトを構成する場合の、実行するjarファイルを指定します。
 # プロファイルでの --execute オプションと同じ働きをします。
 # ビルトインモードを実行する場合は必須です。
-readonly SETTING_SERVICE_EXECUTE=""
+readonly MCSVUTILS_SERVICE_EXECUTE=""
 # 実行オプション
 # ビルトインモードとしてスクリプトを構成する場合の、javaに渡す引数を指定します。
 # プロファイルでの --option オプションと同じ働きをします。
-readonly SETTING_SERVICE_OPTIONS=()
+readonly MCSVUTILS_SERVICE_OPTIONS=()
 # jar呼び出し引数
 # ビルトインモードとしてスクリプトを構成する場合の、jarに渡す引数を指定します。
 # プロファイルでの --args オプションと同じ働きをします。
-readonly SETTING_SERVICE_ARGS=()
+readonly MCSVUTILS_SERVICE_ARGS=()
 # 作業ディレクトリ
 # ビルトインモードとしてスクリプトを構成する場合の、作業ディレクトリを指定します。
 # プロファイルでの --cwd オプションと同じ働きをします。
-readonly SETTING_SERVICE_CWD="./"
+readonly MCSVUTILS_SERVICE_CWD="./"
 # java環境
 # ビルトインモードとしてスクリプトを構成する場合の、java実行環境を指定します。
 # プロファイルでの --java オプションと同じ働きをします。
-readonly SETTING_SERVICE_JRE=""
+readonly MCSVUTILS_SERVICE_JRE=""
 # サービス所有者
 # ビルトインモードとしてスクリプトを構成する場合の、サービス所有者を指定します。
 # プロファイルでの --owner オプションと同じ働きをします。
-readonly SETTING_SERVICE_OWNER=""
+readonly MCSVUTILS_SERVICE_OWNER=""
 ## -------------------------------------
 
 # Analyze arguments --------------------
@@ -412,20 +423,20 @@ profile_args=""
 profile_cwd=""
 profile_java=""
 profile_owner=""
-if [ $SETTING_BUILT_IN_MODE -ne 0 ]; then
-	profile_name="$SETTING_SERVICE_NAME"
-	profile_execute="$SETTING_SERVICE_EXECUTE"
-	profile_options=("${SETTING_SERVICE_OPTIONS[@]}")
-	profile_args=("${SETTING_SERVICE_ARGS[@]}")
-	profile_cwd="$SETTING_SERVICE_CWD"
-	profile_java="$SETTING_SERVICE_JRE"
-	profile_owner="$SETTING_SERVICE_OWNER"
+if [ $MCSVUTILS_BUILTINMODE -ne 0 ]; then
+	profile_name="$MCSVUTILS_SERVICE_NAME"
+	profile_execute="$MCSVUTILS_SERVICE_EXECUTE"
+	profile_options=("${MCSVUTILS_SERVICE_OPTIONS[@]}")
+	profile_args=("${MCSVUTILS_SERVICE_ARGS[@]}")
+	profile_cwd="$MCSVUTILS_SERVICE_CWD"
+	profile_java="$MCSVUTILS_SERVICE_JRE"
+	profile_owner="$MCSVUTILS_SERVICE_OWNER"
 fi
 
 # プロファイルを読み込み
 profile_load()
 {
-	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; }
+	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; }
 	[ -e "$profile_file" ] || { echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"; return $RESPONCE_ERROR; }
 	profile_version=$(jq -r ".version | numbers" "$profile_file")
 	if ! [ $? ] || [ "$profile_version" != "$DATA_VERSION" ]; then echoerr "mcsvutils: [E] 対応していないプロファイルのバージョンです"; return $RESPONCE_ERROR; fi
@@ -452,7 +463,7 @@ profile_load()
 # プロファイルを生成・保存
 profile_save()
 {
-	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; }
+	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; }
 	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$profile_name\", execute: \"$profile_execute\" }")
 	local options="[]"
 	if [ ${#profile_options[@]} -ne 0 ]; then
@@ -539,7 +550,7 @@ action_create()
 		usage
 		return
 	fi
-	[ $SETTING_BUILT_IN_MODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; }
+	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; }
 	local result
 	if [ "$nameflag" = "" ]; then
 		echoerr "mcsvutils: [E] --nameは必須です"
@@ -602,7 +613,7 @@ action_status()
 		usage
 		return
 	fi
-	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
 			if [ "$nameflag" != "" ]; then
@@ -681,7 +692,7 @@ action_attach()
 		usage
 		return
 	fi
-	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
 			if [ "$nameflag" != "" ]; then
@@ -774,7 +785,7 @@ action_start()
 		usage
 		return
 	fi
-	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
 			if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
@@ -896,7 +907,7 @@ action_stop()
 		usage
 		return
 	fi
-	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
 			if [ "$nameflag" != "" ]; then
@@ -987,7 +998,7 @@ action_command()
 		return
 	fi
 	local send_command
-	if [ $SETTING_BUILT_IN_MODE -eq 0 ]; then
+	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ "$nameflag" = "" ]; then
 			profile_file="${args[0]}"
 			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
