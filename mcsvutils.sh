@@ -28,12 +28,12 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.2.1 2021-07-04
+	version 0.3.0 2021-07-20
 	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
 
-readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "create" "status" "start" "stop" "attach" "command")
+readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "create" "status" "start" "stop" "attach" "command")
 
 usage()
 {
@@ -78,7 +78,9 @@ oncheckfail()
 }
 
 ## Const -------------------------------
+readonly TEMP=/tmp
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
+readonly SPIGOT_BUILDTOOLS_LOCATION='https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
 readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
@@ -1174,6 +1176,78 @@ action_mcdownload()
 	else
 		echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
 		return $RESPONCE_ERROR
+	fi
+}
+
+action_spigotbuild()
+{
+	usage()
+	{
+		cat <<- __EOF
+		使用法: $0 spigotbuild <バージョン> [保存先]
+		__EOF
+	}
+	help()
+	{
+		cat <<- __EOF
+		mcdownloadはSpigotサーバーのビルドツールをダウンロードし、Minecraftサーバーからビルドします。
+		<バージョン>に指定可能なものは https://www.spigotmc.org/wiki/buildtools/#versions を確認してください。
+		__EOF
+	}
+	if [ "$helpflag" != "" ]; then
+		version
+		echo
+		usage
+		echo
+		help
+		return
+	elif [ "$usageflag" != "" ]; then
+		usage
+		return
+	fi
+	check || {
+		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"
+		return $RESPONCE_ERROR
+	}
+	[ ${#args[@]} -lt 1 ] && {
+		echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"
+		return $RESPONCE_ERROR
+	}
+	local selected_version="${args[0]}"
+	local work_dir
+	work_dir="$TEMP/mcsvutils-$(cat /proc/sys/kernel/random/uuid)"
+	(
+		mkdir -p "$work_dir" || {
+			echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"
+			return $RESPONCE_ERROR
+		}
+		cd "$work_dir" || {
+			echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"
+			return $RESPONCE_ERROR
+		}
+		wget "$SPIGOT_BUILDTOOLS_LOCATION" || {
+			echoerr "[E] BuildTools.jar のダウンロードに失敗しました"
+			return $RESPONCE_ERROR
+		}
+		java -jar BuildTools.jar --rev "$selected_version" || {
+			echoerr "[E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"
+			return $RESPONCE_ERROR
+		}
+	)
+	local destination="./"
+	[ ${#args[@]} -ge 2 ] && {
+		destination=${args[1]}
+	}
+	if [ -e "${work_dir}/spigot-${selected_version}.jar" ]; then
+		mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || {
+			echoerr "[E] jarファイルの移動に失敗しました。"
+			return $RESPONCE_ERROR
+		}
+		rm -rf "$work_dir"
+		return $RESPONCE_POSITIVE
+	else
+		echoerr "[W] jarファイルの自動探索に失敗しました。ファイルは移動されません。"
+		return $RESPONCE_NEGATIVE
 	fi
 }
 
