@@ -197,7 +197,7 @@ profile_check_integrity()
 action_profile()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "create")
+	local SUBCOMMANDS=("help" "info" "create")
 	usage()
 	{
 		cat <<- __EOF
@@ -213,11 +213,68 @@ action_profile()
 		使用可能なサブコマンドは以下のとおりです。
 
 		  help     このヘルプを表示する
+		  info     プロファイルの内容を表示する
 		  create   プロファイルを作成する
 		__EOF
 	}
 
 	# Subcommands --------------------------
+	action_profile_info()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 profile info <プロファイル>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			profile info はMinecraftサーバーのプロファイルの情報を取得します。
+			プロファイルにはプロファイルデータが記述されたファイルのパスを指定します。
+			ファイルの指定がなかった場合は、標準入力から読み込まれます。
+			__EOF
+		}
+		local args=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		if [ "${#args[@]}" -ge 1 ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+		profile_check_integrity || { echoerr "mcsvutils: [E] 指定されたデータは正しいプロファイルデータではありません"; return $RESPONCE_ERROR; }
+		echo "サービス名: $(profile_get_servicename)"
+		[ -n "$(profile_get_owner)" ] && echo "サービス所有者: $(profile_get_owner)"
+		[ -n "$(profile_get_cwd)" ] && echo "作業ディレクトリ: $(profile_get_cwd)"
+		[ -n "$(profile_get_mcversion)" ] && echo "Minecraftバージョン: $(profile_get_mcversion)"
+		[ -n "$(profile_get_executejar)" ] && echo "実行jarファイル: $(profile_get_executejar)"
+		[ -n "$(profile_get_jre)" ] && echo "Java環境: $(profile_get_jre)"
+		[ -n "$(profile_get_options)" ] && echo "Java呼び出しオプション: $(profile_get_options)"
+		[ -n "$(profile_get_arguments)" ] && echo "デフォルト引数: $(profile_get_arguments)"
+		return $RESPONCE_POSITIVE
+	}
 	action_profile_create()
 	{
 		usage()
