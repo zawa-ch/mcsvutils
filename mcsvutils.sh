@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-readonly SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "create" "status" "start" "stop" "attach" "command")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "status" "start" "stop" "attach" "command")
 
 usage()
 {
@@ -46,7 +46,7 @@ usage()
 help()
 {
 	cat <<- __EOF
-	  create      サーバープロファイルを作成する
+	  profile     サーバーインスタンスのプロファイルを管理する
 	  status      サーバーの状態を問い合わせる
 	  start       サーバーを起動する
 	  stop        サーバーを停止する
@@ -210,148 +210,207 @@ profile_check_integrity()
 	return $RESPONCE_POSITIVE
 }
 
-action_create()
+# Subcommands --------------------------
+action_profile()
 {
+	# Usage/Help ---------------------------
+	local SUBCOMMANDS=("help" "create")
 	usage()
 	{
 		cat <<- __EOF
-		使用法:
-		$0 create --name <名前> --version <バージョン> [オプション]
-		$0 create --name <名前> --execute <jarファイル> [オプション]
+		使用法: $0 profile <サブコマンド>
+		使用可能なサブコマンド: ${SUBCOMMANDS[@]}
 		__EOF
 	}
 	help()
 	{
 		cat <<- __EOF
-		create はMinecraftサーバーのプロファイルを作成します。
+		profile はMinecraftサーバーのプロファイルを管理します。
 
-		--profile | -p
-		    基となるプロファイルデータのファイルを指定します。
-		--input | -i
-		    基となるプロファイルデータを標準入力から取得します。
-		--out | -o
-		    出力先ファイル名を指定します。
-		    指定がなかった場合は標準出力に書き出されます。
-		--name | -n (必須)
-		    インスタンスの名前を指定します。
-		--version | -r
-		    サーバーとして実行するMinecraftのバージョンを指定します。
-		    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-		    また、--executeオプションと同時に使用することはできません。
-		--execute | -e
-		    サーバーとして実行するjarファイルを指定します。
-		    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-		    また、--versionオプションと同時に使用することはできません。
-		--owner | -u
-		    実行時のユーザーを指定します。
-		--cwd
-		    実行時の作業ディレクトリを指定します。
-		--java
-		    javaの環境を指定します。
-		    このオプションを指定するとインストールされているjavaとは異なるjavaを使用することができます。
-		--option
-		    実行時にjreに渡すオプションを指定します。
-		    複数回呼び出された場合、呼び出された順に連結されます。
-		--args
-		    実行時にjarに渡されるデフォルトの引数を指定します。
-		    複数回呼び出された場合、呼び出された順に連結されます。
+		使用可能なサブコマンドは以下のとおりです。
+
+		  help     このヘルプを表示する
+		  create   プロファイルを作成する
 		__EOF
 	}
-	local args=()
-	local profileflag=''
-	local inputflag=''
-	local outflag=''
-	local nameflag=''
-	local versionflag=''
-	local executeflag=''
-	local ownerflag=''
-	local cwdflag=''
-	local javaflag=''
-	local optionflag=()
-	local argsflag=()
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--profile)	shift; profileflag="$1"; shift;;
-			--input)	shift; inputflag="$1"; shift;;
-			--out)  	shift; outflag="$1"; shift;;
-			--name) 	shift; nameflag="$1"; shift;;
-			--version)	shift; versionflag="$1"; shift;;
-			--execute)	shift; executeflag="$1"; shift;;
-			--owner)	shift; ownerflag="$1"; shift;;
-			--cwd)  	shift; cwdflag="$1"; shift;;
-			--java) 	shift; javaflag="$1"; shift;;
-			--option)	shift; optionflag+=("$1"); shift;;
-			--args) 	shift; argsflag+=("$1"); shift;;
-			--help) 	helpflag='--help'; shift;;
-			--usage)	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-				[[ "$1" =~ i ]] && { inputflag='-i'; }
-				[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
-				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-				[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
-				[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
-				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
 
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	# Subcommands --------------------------
+	action_profile_create()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 profile create --name <名前> --version <バージョン> [オプション]
+			$0 profile create --name <名前> --execute <jarファイル> [オプション]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			profile create はMinecraftサーバーのプロファイルを作成します。
+
+			--profile | -p
+			    基となるプロファイルデータのファイルを指定します。
+			--input | -i
+			    基となるプロファイルデータを標準入力から取得します。
+			--out | -o
+			    出力先ファイル名を指定します。
+			    指定がなかった場合は標準出力に書き出されます。
+			--name | -n (必須)
+			    インスタンスの名前を指定します。
+			--version | -r
+			    サーバーとして実行するMinecraftのバージョンを指定します。
+			    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    また、--executeオプションと同時に使用することはできません。
+			--execute | -e
+			    サーバーとして実行するjarファイルを指定します。
+			    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    また、--versionオプションと同時に使用することはできません。
+			--owner | -u
+			    実行時のユーザーを指定します。
+			--cwd
+			    実行時の作業ディレクトリを指定します。
+			--java
+			    javaの環境を指定します。
+			    このオプションを指定するとインストールされているjavaとは異なるjavaを使用することができます。
+			--option
+			    実行時にjreに渡すオプションを指定します。
+			    複数回呼び出された場合、呼び出された順に連結されます。
+			--args
+			    実行時にjarに渡されるデフォルトの引数を指定します。
+			    複数回呼び出された場合、呼び出された順に連結されます。
+			__EOF
+		}
+		local args=()
+		local profileflag=''
+		local inputflag=''
+		local outflag=''
+		local nameflag=''
+		local versionflag=''
+		local executeflag=''
+		local ownerflag=''
+		local cwdflag=''
+		local javaflag=''
+		local optionflag=()
+		local argsflag=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--profile)	shift; profileflag="$1"; shift;;
+				--input)	shift; inputflag="$1"; shift;;
+				--out)  	shift; outflag="$1"; shift;;
+				--name) 	shift; nameflag="$1"; shift;;
+				--version)	shift; versionflag="$1"; shift;;
+				--execute)	shift; executeflag="$1"; shift;;
+				--owner)	shift; ownerflag="$1"; shift;;
+				--cwd)  	shift; cwdflag="$1"; shift;;
+				--java) 	shift; javaflag="$1"; shift;;
+				--option)	shift; optionflag+=("$1"); shift;;
+				--args) 	shift; argsflag+=("$1"); shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
+					[[ "$1" =~ i ]] && { inputflag='-i'; }
+					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
+					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+					[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
+					[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
+					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		local result="{}"
+		[ -n "$profileflag" ] && [ -n "$inputflag" ] && { echoerr "mcsvutils: [E] --profileと--inputは同時に指定できません"; return $RESPONCE_ERROR; }
+		[ -n "$profileflag" ] && { { profile_open "$profileflag" && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
+		[ -n "$inputflag" ] && { { profile_open && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
+		[ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$nameflag" ] && { echoerr "mcsvutils: [E] --nameは必須です"; return $RESPONCE_ERROR; }
+		result=$(echo "$result" | jq -c --argjson version "$DATA_VERSION" '.version |= $version') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		[ -n "$nameflag" ] && { result=$(echo "$result" | jq -c --arg servicename "$nameflag" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$executeflag" ] && [ -z "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeまたは--versionは必須です"; return $RESPONCE_ERROR; }
+		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -n "$executeflag" ] && [ -n "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeと--versionは同時に指定できません"; return $RESPONCE_ERROR; }
+		[ -n "$executeflag" ] && { result=$(echo "$result" | jq -c --arg executejar "$executeflag" '.executejar |= $executejar | .mcversion |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$versionflag" ] && { result=$(echo "$result" | jq -c --arg mcversion "$versionflag" '.mcversion |= $mcversion | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		local options="[]"
+		[ ${#optionflag[@]} -ne 0 ] && { for item in "${optionflag[@]}"; do options=$(echo "$options" | jq -c ". + [ \"$item\" ]"); done }
+		result=$(echo "$result" | jq -c --argjson options "$options" '.options |= $options') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		local arguments="[]"
+		[ ${#argsflag[@]} -ne 0 ] && { for item in "${argsflag[@]}"; do arguments=$(echo "$arguments" | jq -c ". + [ \"$item\" ]"); done }
+		result=$(echo "$result" | jq -c --argjson arguments "$arguments" '.arguments |= $arguments') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		if [ -n "$cwdflag" ]; then
+			result=$(echo "$result" | jq -c --arg cwd "$cwdflag" '.cwd |= $cwd') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.cwd |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		if [ -n "$javaflag" ]; then
+			result=$(echo "$result" | jq -c --arg jre "$javaflag" '.jre |= $jre') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.jre |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		if [ -n "$ownerflag" ]; then
+			result=$(echo "$result" | jq -c --arg owner "$ownerflag" '.owner |= $owner') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.owner |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		profile_data="$result"
+		if [ -n "$outflag" ]; then
+			echo "$profile_data" > "$outflag"
+		else
+			echo "$profile_data"
+		fi
+	}
+
+	# Analyze arguments --------------------
+	local subcommand=""
+	if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
+		subcommand="none"
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)	break;;
+			esac
+		done
+	else
+		for item in "${SUBCOMMANDS[@]}"
+		do
+			[ "$item" == "$1" ] && {
+				subcommand="$item"
+				shift
+				break
+			}
+		done
+	fi
+	[ -z "$subcommand" ] && { echoerr "mcsvutils: [E] 無効なサブコマンドを指定しました。"; usage >&2; return $RESPONCE_ERROR; }
+	{ [ "$subcommand" == "help" ] || [ -n "$helpflag" ]; } && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	local result="{}"
-	[ -n "$profileflag" ] && [ -n "$inputflag" ] && { echoerr "mcsvutils: [E] --profileと--inputは同時に指定できません"; return $RESPONCE_ERROR; }
-	[ -n "$profileflag" ] && { { profile_open "$profileflag" && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
-	[ -n "$inputflag" ] && { { profile_open && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
-	[ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$nameflag" ] && { echoerr "mcsvutils: [E] --nameは必須です"; return $RESPONCE_ERROR; }
-	result=$(echo "$result" | jq -c --argjson version "$DATA_VERSION" '.version |= $version') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	[ -n "$nameflag" ] && { result=$(echo "$result" | jq -c --arg servicename "$nameflag" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-	{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$executeflag" ] && [ -z "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeまたは--versionは必須です"; return $RESPONCE_ERROR; }
-	{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -n "$executeflag" ] && [ -n "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeと--versionは同時に指定できません"; return $RESPONCE_ERROR; }
-	[ -n "$executeflag" ] && { result=$(echo "$result" | jq -c --arg executejar "$executeflag" '.executejar |= $executejar | .mcversion |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-	[ -n "$versionflag" ] && { result=$(echo "$result" | jq -c --arg mcversion "$versionflag" '.mcversion |= $mcversion | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-	local options="[]"
-	[ ${#optionflag[@]} -ne 0 ] && { for item in "${optionflag[@]}"; do options=$(echo "$options" | jq -c ". + [ \"$item\" ]"); done }
-	result=$(echo "$result" | jq -c --argjson options "$options" '.options |= $options') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	local arguments="[]"
-	[ ${#argsflag[@]} -ne 0 ] && { for item in "${argsflag[@]}"; do arguments=$(echo "$arguments" | jq -c ". + [ \"$item\" ]"); done }
-	result=$(echo "$result" | jq -c --argjson arguments "$arguments" '.arguments |= $arguments') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	if [ -n "$cwdflag" ]; then
-		result=$(echo "$result" | jq -c --arg cwd "$cwdflag" '.cwd |= $cwd') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	else
-		result=$(echo "$result" | jq -c '.cwd |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	fi
-	if [ -n "$javaflag" ]; then
-		result=$(echo "$result" | jq -c --arg jre "$javaflag" '.jre |= $jre') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	else
-		result=$(echo "$result" | jq -c '.jre |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	fi
-	if [ -n "$ownerflag" ]; then
-		result=$(echo "$result" | jq -c --arg owner "$ownerflag" '.owner |= $owner') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	else
-		result=$(echo "$result" | jq -c '.owner |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-	fi
-	profile_data="$result"
-	if [ -n "$outflag" ]; then
-		echo "$profile_data" > "$outflag"
-	else
-		echo "$profile_data"
-	fi
+	[ "$subcommand" == "none" ] && { echoerr "mcsvutils: [E] サブコマンドが指定されていません。"; echoerr "$0 profile help で詳細なヘルプを表示します。"; usage >&2; return $RESPONCE_ERROR; }
+	"action_profile_$subcommand" "$@"
 }
 
 action_status()
