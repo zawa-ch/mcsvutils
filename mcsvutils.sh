@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "status" "start" "stop" "attach" "command")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "start" "stop" "attach" "command")
 
 usage()
 {
@@ -47,7 +47,7 @@ help()
 {
 	cat <<- __EOF
 	  profile     サーバーインスタンスのプロファイルを管理する
-	  status      サーバーの状態を問い合わせる
+	  server      サーバーインスタンスを管理する
 	  start       サーバーを起動する
 	  stop        サーバーを停止する
 	  attach      サーバーのコンソールに接続する
@@ -413,97 +413,155 @@ action_profile()
 	"action_profile_$subcommand" "$@"
 }
 
-action_status()
+action_server()
 {
+	# Usage/Help ---------------------------
+	local SUBCOMMANDS=("help" "status")
 	usage()
 	{
 		cat <<- __EOF
-		使用法:
-		$0 status -p <プロファイル> [オプション]
-		$0 status -n <名前> [オプション]
+		使用法: $0 server <サブコマンド>
+		使用可能なサブコマンド: ${SUBCOMMANDS[@]}
 		__EOF
 	}
 	help()
 	{
 		cat <<- __EOF
-		status はMinecraftサーバーの状態を問い合わせます。
-		コマンドの実行には名前、もしくはプロファイルのどちらかを指定する必要があります。
-		いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
+		server はMinecraftサーバーのインスタンスを管理します。
 
-		--profile | -p
-		    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
-		    名前を指定していない場合のみ必須です。
-		    名前を指定している場合はこのオプションを指定することはできません。
-		--name | -n
-		    インスタンスの名前を指定します。
-		    プロファイルを指定しない場合のみ必須です。
-		    プロファイルを指定している場合はこのオプションを指定することはできません。
-		--owner | -u
-		    実行時のユーザーを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		
-		指定したMinecraftサーバーが起動している場合は $RESPONCE_POSITIVE 、起動していない場合は $RESPONCE_NEGATIVE が返されます。
+		使用可能なサブコマンドは以下のとおりです。
+
+		  help     このヘルプを表示する
+		  status   インスタンスの状態を問い合わせる
 		__EOF
 	}
-	local args=()
-	local profileflag=''
-	local nameflag=''
-	local ownerflag=''
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--profile) 	shift; profileflag="$1"; shift;;
-			--name) 	shift; nameflag="$1"; shift;;
-			--owner)	shift; ownerflag="$1"; shift;;
-			--help) 	helpflag='--help'; shift;;
-			--usage)	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
 
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	# Subcommands --------------------------
+	action_server_status()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 server status -p <プロファイル> [オプション]
+			$0 server status -n <名前> [オプション]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			server status はMinecraftサーバーの状態を問い合わせます。
+			コマンドの実行には名前、もしくはプロファイルのどちらかを指定する必要があります。
+			いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
+
+			--profile | -p
+			    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
+			    名前を指定していない場合のみ必須です。
+			    名前を指定している場合はこのオプションを指定することはできません。
+			--name | -n
+			    インスタンスの名前を指定します。
+			    プロファイルを指定しない場合のみ必須です。
+			    プロファイルを指定している場合はこのオプションを指定することはできません。
+			--owner | -u
+			    実行時のユーザーを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+
+			指定したMinecraftサーバーが起動している場合は $RESPONCE_POSITIVE 、起動していない場合は $RESPONCE_NEGATIVE が返されます。
+			__EOF
+		}
+		local args=()
+		local profileflag=''
+		local nameflag=''
+		local ownerflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--profile) 	shift; profileflag="$1"; shift;;
+				--name) 	shift; nameflag="$1"; shift;;
+				--owner)	shift; ownerflag="$1"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
+					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		local servicename=''
+		local owner=''
+		if [ -n "$nameflag" ]; then
+			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
+			servicename=$nameflag
+		else
+			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
+			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
+			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+		fi
+		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
+		[ -n "$ownerflag" ] && owner=$ownerflag
+		[ -z "$owner" ] && owner="$(whoami)"
+		if as_user "$owner" "screen -list \"$servicename\"" > /dev/null
+		then
+			echo "mcsvutils: ${servicename} は起動しています"
+			return $RESPONCE_POSITIVE
+		else
+			echo "mcsvutils: ${servicename} は起動していません"
+			return $RESPONCE_NEGATIVE
+		fi
+	}
+
+	# Analyze arguments --------------------
+	local subcommand=""
+	if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
+		subcommand="none"
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)	break;;
+			esac
+		done
+	else
+		for item in "${SUBCOMMANDS[@]}"
+		do
+			[ "$item" == "$1" ] && {
+				subcommand="$item"
+				shift
+				break
+			}
+		done
+	fi
+	[ -z "$subcommand" ] && { echoerr "mcsvutils: [E] 無効なサブコマンドを指定しました。"; usage >&2; return $RESPONCE_ERROR; }
+	{ [ "$subcommand" == "help" ] || [ -n "$helpflag" ]; } && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	local servicename=''
-	local owner=''
-	if [ -n "$nameflag" ]; then
-		[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
-		servicename=$nameflag
-	else
-		if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
-		profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
-		servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-		owner="$(profile_get_owner)" || return $RESPONCE_ERROR
-	fi
-	[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-	[ -n "$ownerflag" ] && owner=$ownerflag
-	[ -z "$owner" ] && owner="$(whoami)"
-	if as_user "$owner" "screen -list \"$servicename\"" > /dev/null
-	then
-		echo "mcsvutils: ${servicename} は起動しています"
-		return $RESPONCE_POSITIVE
-	else
-		echo "mcsvutils: ${servicename} は起動していません"
-		return $RESPONCE_NEGATIVE
-	fi
+	[ "$subcommand" == "none" ] && { echoerr "mcsvutils: [E] サブコマンドが指定されていません。"; echoerr "$0 server help で詳細なヘルプを表示します。"; usage >&2; return $RESPONCE_ERROR; }
+	"action_server_$subcommand" "$@"
 }
 
 action_attach()
