@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "stop" "attach" "command")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "attach" "command")
 
 usage()
 {
@@ -48,7 +48,6 @@ help()
 	cat <<- __EOF
 	  profile     サーバーインスタンスのプロファイルを管理する
 	  server      サーバーインスタンスを管理する
-	  stop        サーバーを停止する
 	  attach      サーバーのコンソールに接続する
 	  command     サーバーにコマンドを送信する
 	  mcversions  minecraftのバージョンのリストを出力する
@@ -415,7 +414,7 @@ action_profile()
 action_server()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "status" "start")
+	local SUBCOMMANDS=("help" "status" "start" "stop")
 	usage()
 	{
 		cat <<- __EOF
@@ -433,6 +432,7 @@ action_server()
 		  help     このヘルプを表示する
 		  status   インスタンスの状態を問い合わせる
 		  start    インスタンスを開始する
+		  stop     インスタンスを停止する
 		__EOF
 	}
 
@@ -684,6 +684,106 @@ action_server()
 		fi
 		__EOF
 	}
+	action_server_stop()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 server stop -p <プロファイル> [オプション]
+			$0 server stop -n <名前> [オプション]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			server stop はMinecraftサーバーのインスタンスを停止します。
+			インスタンスの停止には名前、もしくはプロファイルのどちらかを指定する必要があります。
+			いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
+
+			--profile | -p
+			    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
+			    名前を指定していない場合のみ必須です。
+			    名前を指定している場合はこのオプションを指定することはできません。
+			--name | -n
+			    インスタンスの名前を指定します。
+			    プロファイルを指定しない場合のみ必須です。
+			    プロファイルを指定している場合はこのオプションを指定することはできません。
+			--owner | -u
+			    実行時のユーザーを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			__EOF
+		}
+		local args=()
+		local profileflag=''
+		local nameflag=''
+		local ownerflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--profile) 	shift; profileflag="$1"; shift;;
+				--name) 	shift; nameflag="$1"; shift;;
+				--owner)	shift; ownerflag="$1"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
+					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		local servicename=''
+		local owner=''
+		if [ -n "$nameflag" ]; then
+			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
+			servicename=$nameflag
+		else
+			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
+			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
+			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+		fi
+		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
+		[ -n "$ownerflag" ] && owner=$ownerflag
+		[ -z "$owner" ] && owner="$(whoami)"
+		as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません" >&2; return $RESPONCE_NEGATIVE; }
+		echo "mcsvutils: ${servicename} を停止しています"
+		dispatch_mccommand "$owner" "$servicename" stop
+		as_user_script "$owner" <<- __EOF
+		trap 'echo "mcsvutils: SIGINTを検出しました。処理は中断しますが、遅れてサービスが停止する可能性はあります…"; exit $RESPONCE_ERROR' 2
+		while screen -list "$servicename" > /dev/null
+		do
+			sleep 1
+		done
+		__EOF
+		if ! as_user "$owner" "screen -list \"$servicename\"" > /dev/null
+		then
+			echo "mcsvutils: ${servicename} が停止しました"
+			return $RESPONCE_POSITIVE
+		else
+			echo "mcsvutils: [E] ${servicename} が停止しませんでした" >&2
+			return $RESPONCE_ERROR
+		fi
+	}
 
 	# Analyze arguments --------------------
 	local subcommand=""
@@ -806,107 +906,6 @@ action_attach()
 	[ -z "$owner" ] && owner="$(whoami)"
 	as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
 	as_user "$owner" "screen -r \"$servicename\""
-}
-
-action_stop()
-{
-	usage()
-	{
-		cat <<- __EOF
-		使用法:
-		$0 stop -p <プロファイル> [オプション]
-		$0 stop -n <名前> [オプション]
-		__EOF
-	}
-	help()
-	{
-		cat <<- __EOF
-		stop はMinecraftサーバーのインスタンスを停止します。
-		インスタンスの停止には名前、もしくはプロファイルのどちらかを指定する必要があります。
-		いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
-
-		--profile | -p
-		    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
-		    名前を指定していない場合のみ必須です。
-		    名前を指定している場合はこのオプションを指定することはできません。
-		--name | -n
-		    インスタンスの名前を指定します。
-		    プロファイルを指定しない場合のみ必須です。
-		    プロファイルを指定している場合はこのオプションを指定することはできません。
-		--owner | -u
-		    実行時のユーザーを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		__EOF
-	}
-	local args=()
-	local profileflag=''
-	local nameflag=''
-	local ownerflag=''
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--profile) 	shift; profileflag="$1"; shift;;
-			--name) 	shift; nameflag="$1"; shift;;
-			--owner)	shift; ownerflag="$1"; shift;;
-			--help) 	helpflag='--help'; shift;;
-			--usage)	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
-
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
-	[ -n "$usageflag" ] && { usage; return; }
-	local servicename=''
-	local owner=''
-	if [ -n "$nameflag" ]; then
-		[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
-		servicename=$nameflag
-	else
-		if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
-		profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
-		servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-		owner="$(profile_get_owner)" || return $RESPONCE_ERROR
-	fi
-	[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-	[ -n "$ownerflag" ] && owner=$ownerflag
-	[ -z "$owner" ] && owner="$(whoami)"
-	as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません" >&2; return $RESPONCE_NEGATIVE; }
-	echo "mcsvutils: ${servicename} を停止しています"
-	dispatch_mccommand "$owner" "$servicename" stop
-	as_user_script "$owner" <<- __EOF
-	trap 'echo "mcsvutils: SIGINTを検出しました。処理は中断しますが、遅れてサービスが停止する可能性はあります…"; exit $RESPONCE_ERROR' 2
-	while screen -list "$servicename" > /dev/null
-	do
-		sleep 1
-	done
-	__EOF
-	if ! as_user "$owner" "screen -list \"$servicename\"" > /dev/null
-	then
-		echo "mcsvutils: ${servicename} が停止しました"
-		return $RESPONCE_POSITIVE
-	else
-		echo "mcsvutils: [E] ${servicename} が停止しませんでした" >&2
-		return $RESPONCE_ERROR
-	fi
 }
 
 action_command()
