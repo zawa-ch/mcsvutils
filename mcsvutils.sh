@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "command")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server")
 
 usage()
 {
@@ -48,7 +48,6 @@ help()
 	cat <<- __EOF
 	  profile     サーバーインスタンスのプロファイルを管理する
 	  server      サーバーインスタンスを管理する
-	  command     サーバーにコマンドを送信する
 	  mcversions  minecraftのバージョンのリストを出力する
 	  mcdownload  minecraftサーバーをダウンロードする
 	  check       このスクリプトの動作要件を満たしているかチェックする
@@ -413,7 +412,7 @@ action_profile()
 action_server()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "status" "start" "stop" "attach")
+	local SUBCOMMANDS=("help" "status" "start" "stop" "attach" "command")
 	usage()
 	{
 		cat <<- __EOF
@@ -433,6 +432,7 @@ action_server()
 		  start    インスタンスを開始する
 		  stop     インスタンスを停止する
 		  attach   インスタンスのコンソールにアタッチする
+		  command  インスタンスにコマンドを送信する
 		__EOF
 	}
 
@@ -872,6 +872,110 @@ action_server()
 		as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
 		as_user "$owner" "screen -r \"$servicename\""
 	}
+	action_server_command()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 server command -p <プロファイル> [オプション] <コマンド>
+			$0 server command -n <名前> [オプション] <コマンド>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			server command はMinecraftサーバーにコマンドを送信します。
+			インスタンスへのコマンド送信には名前、もしくはプロファイルのどちらかを指定する必要があります。
+			いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
+
+			--profile | -p
+			    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
+			    名前を指定していない場合のみ必須です。
+			    名前を指定している場合はこのオプションを指定することはできません。
+			--name | -n
+			    インスタンスの名前を指定します。
+			    プロファイルを指定しない場合のみ必須です。
+			    プロファイルを指定している場合はこのオプションを指定することはできません。
+			--owner | -u
+			    実行時のユーザーを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			--cwd
+			    実行時の作業ディレクトリを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			__EOF
+		}
+		local args=()
+		local profileflag=''
+		local nameflag=''
+		local ownerflag=''
+		local cwdflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--profile) 	shift; profileflag="$1"; shift;;
+				--name) 	shift; nameflag="$1"; shift;;
+				--owner)	shift; ownerflag="$1"; shift;;
+				--cwd)  	shift; cwdflag="$1"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
+					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		local servicename=''
+		local cwd=''
+		local owner=''
+		if [ -n "$nameflag" ]; then
+			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
+			servicename=$nameflag
+		else
+			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
+			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
+			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+		fi
+		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
+		[ -n "$cwdflag" ] && cwd=$cwdflag
+		[ -n "$ownerflag" ] && owner=$ownerflag
+		[ -z "$cwd" ] && cwd="."
+		[ -z "$owner" ] && owner="$(whoami)"
+		send_command="${args[*]}"
+		as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
+		local pre_log_length
+		if [ "$cwd" != "" ]; then
+			pre_log_length=$(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}')
+		fi
+		echo "mcsvutils: ${servicename} にコマンドを送信しています..."
+		echo "> $send_command"
+		dispatch_mccommand "$owner" "$servicename" "$send_command"
+		echo "mcsvutils: コマンドを送信しました"
+		sleep .1
+		echo "レスポンス:"
+		as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
+		return $RESPONCE_POSITIVE
+	}
 
 	# Analyze arguments --------------------
 	local subcommand=""
@@ -905,112 +1009,6 @@ action_server()
 	[ -n "$usageflag" ] && { usage; return; }
 	[ "$subcommand" == "none" ] && { echoerr "mcsvutils: [E] サブコマンドが指定されていません。"; echoerr "$0 server help で詳細なヘルプを表示します。"; usage >&2; return $RESPONCE_ERROR; }
 	"action_server_$subcommand" "$@"
-}
-
-action_command()
-{
-	usage()
-	{
-		cat <<- __EOF
-		使用法:
-		server command -p <プロファイル> [オプション] <コマンド>
-		server command -n <名前> [オプション] <コマンド>
-		__EOF
-	}
-	help()
-	{
-		cat <<- __EOF
-		commandはMinecraftサーバーにコマンドを送信します。
-		インスタンスへのコマンド送信には名前、もしくはプロファイルのどちらかを指定する必要があります。
-		いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
-
-		--profile | -p
-		    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
-		    名前を指定していない場合のみ必須です。
-		    名前を指定している場合はこのオプションを指定することはできません。
-		--name | -n
-		    インスタンスの名前を指定します。
-		    プロファイルを指定しない場合のみ必須です。
-		    プロファイルを指定している場合はこのオプションを指定することはできません。
-		--owner | -u
-		    実行時のユーザーを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		--cwd
-		    実行時の作業ディレクトリを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		
-		__EOF
-	}
-	local args=()
-	local profileflag=''
-	local nameflag=''
-	local ownerflag=''
-	local cwdflag=''
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--profile) 	shift; profileflag="$1"; shift;;
-			--name) 	shift; nameflag="$1"; shift;;
-			--owner)	shift; ownerflag="$1"; shift;;
-			--cwd)  	shift; cwdflag="$1"; shift;;
-			--help) 	helpflag='--help'; shift;;
-			--usage)	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
-
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
-	[ -n "$usageflag" ] && { usage; return; }
-	local servicename=''
-	local cwd=''
-	local owner=''
-	if [ -n "$nameflag" ]; then
-		[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"; return $RESPONCE_ERROR; }
-		servicename=$nameflag
-	else
-		if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
-		profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
-		servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-		owner="$(profile_get_owner)" || return $RESPONCE_ERROR
-	fi
-	[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-	[ -n "$cwdflag" ] && cwd=$cwdflag
-	[ -n "$ownerflag" ] && owner=$ownerflag
-	[ -z "$cwd" ] && cwd="."
-	[ -z "$owner" ] && owner="$(whoami)"
-	send_command="${args[*]}"
-	as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
-	local pre_log_length
-	if [ "$cwd" != "" ]; then
-		pre_log_length=$(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}')
-	fi
-	echo "mcsvutils: ${servicename} にコマンドを送信しています..."
-	echo "> $send_command"
-	dispatch_mccommand "$owner" "$servicename" "$send_command"
-	echo "mcsvutils: コマンドを送信しました"
-	sleep .1
-	echo "レスポンス:"
-	as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
-	return $RESPONCE_POSITIVE
 }
 
 action_mcversions()
