@@ -33,13 +33,13 @@ version()
 	__EOF
 }
 
-readonly EXECUTABLE_ACTIONS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "create" "status" "start" "stop" "attach" "command")
+readonly SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "create" "status" "start" "stop" "attach" "command")
 
 usage()
 {
 	cat <<- __EOF
 	使用法: $0 <アクション> [オプション] ...
-	使用可能なアクション: ${EXECUTABLE_ACTIONS[@]}
+	使用可能なアクション: ${SUBCOMMANDS[@]}
 	__EOF
 }
 
@@ -61,7 +61,7 @@ help()
 
 	各コマンドの詳細なヘルプは各コマンドに--helpオプションを付けてください。
 
-	すべてのアクションに対し、次のオプションが使用できます。
+	すべてのサブコマンドに対し、次のオプションが使用できます。
 	  --help | -h 各アクションのヘルプを表示する
 	  --usage     各アクションの使用法を表示する
 	  --          以降のオプションのパースを行わない
@@ -84,11 +84,11 @@ readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=1
-readonly SCRIPT_LOCATION
 SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)" || {
 	echo "mcsvutils: [E] スクリプトが置かれているディレクトリを検出できませんでした。" >&2
 	exit $RESPONCE_ERROR
 }
+readonly SCRIPT_LOCATION
 ## -------------------------------------
 
 ## Variables ---------------------------
@@ -135,210 +135,11 @@ readonly MCSVUTILS_SERVICE_JRE=""
 readonly MCSVUTILS_SERVICE_OWNER=""
 ## -------------------------------------
 
-# Analyze arguments --------------------
-action=""
-if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
-	action="none"
-else
-	for item in "${EXECUTABLE_ACTIONS[@]}"
-	do
-		if [ "$item" = "$1" ]; then
-			action="$item"
-			shift
-		fi
-	done
-fi
-
 echo_invalid_flag()
 {
 	echo "mcsvutils: [W] 無効なオプション $1 が指定されています" >&2
 	echo "通常の引数として読み込ませる場合は先に -- を使用してください" >&2
 }
-
-declare -a optionflag=()
-declare -a argsflag=()
-
-declare -a args=()
-while (( $# > 0 ))
-do
-	case $1 in
-		--latest)
-			if [ "$action" = "mcversions" ]; then
-				latestflag="--latest"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--no-release)
-			if [ "$action" = "mcversions" ]; then
-				noreleaseflag="--no-release"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--snapshot)
-			if [ "$action" = "mcversions" ]; then
-				snapshotflag="--snapshot"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--old-alpha)
-			if [ "$action" = "mcversions" ]; then
-				oldalphaflag="--old-alpha"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--old-beta)
-			if [ "$action" = "mcversions" ]; then
-				oldbetaflag="--old-beta"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--name)
-			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
-				shift
-				nameflag="$1"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--execute)
-			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-				shift
-				executeflag="$1"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--option)
-			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-				shift
-				optionflag+=("$1")
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--args)
-			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-				shift
-				argsflag+=("$1")
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--cwd)
-			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-				shift
-				cwdflag="$1"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--java)
-			if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-				shift
-				javaflag="$1"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--owner)
-			if [ "$action" = "create" ] || [ "$action" = "status" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "attach" ] || [ "$action" = "command" ]; then
-				shift
-				ownerflag="$1"
-			else
-				echo_invalid_flag "$1"
-			fi
-			shift
-			;;
-		--help)
-			helpflag='--help'
-			shift
-			;;
-		--usage)
-			usageflag='--usage'
-			shift
-			;;
-		--version)
-			versionflag='--version'
-			shift
-			;;
-		--)
-			shift
-			break
-			;;
-		--*)
-			echo_invalid_flag "$1"
-			shift
-			;;
-		-*)
-			if [[ "$1" =~ h ]]; then
-				helpflag='-h'
-			fi
-			if [[ "$1" =~ n ]]; then
-				if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
-					if [[ "$1" =~ n$ ]]; then
-						shift
-						nameflag="$1"
-					else
-						nameflag=''
-					fi
-				else
-					echo_invalid_flag "$1"
-				fi
-			fi
-			if [[ "$1" =~ e ]]; then
-				if [ "$action" = "create" ] || [ "$action" = "start" ]; then
-					if [[ "$1" =~ e$ ]]; then
-						shift
-						executeflag="$1"
-					else
-						executeflag=''
-					fi
-				else
-					echo_invalid_flag "$1"
-				fi
-			fi
-			if [[ "$1" =~ u ]]; then
-				if [ "$action" = "create" ] || [ "$action" = "start" ] || [ "$action" = "stop" ] || [ "$action" = "command" ]; then
-					if [[ "$1" =~ u$ ]]; then
-						shift
-						ownerflag="$1"
-					else
-						ownerflag=''
-					fi
-				else
-					echo_invalid_flag "$1"
-				fi
-			fi
-			shift
-			;;
-		*)
-			args=("${args[@]}" "$1")
-			shift
-			;;
-	esac
-done
-while (( $# > 0 ))
-do
-	args=("${args[@]}" "$1")
-	shift
-done
-# --------------------------------------
 
 # エラー出力にログ出力
 # $1..: echoする内容
@@ -539,17 +340,54 @@ action_create()
 		省略した場合は標準出力に書き出されます。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local optionflag=()
+	local argsflag=()
+	local nameflag=''
+	local executeflag=''
+	local versionflag=''
+	local cwdflag=''
+	local javaflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--execute)	shift; executeflag="$1"; shift;;
+			--version)	shift; versionflag="$1"; shift;;
+			--option)	shift; optionflag+=("$1"); shift;;
+			--args) 	shift; argsflag+=("$1"); shift;;
+			--cwd)  	shift; cwdflag="$1"; shift;;
+			--java) 	shift; javaflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+				[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
+				[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; }
 	local result
 	if [ "$nameflag" = "" ]; then
@@ -602,17 +440,39 @@ action_status()
 		指定したMinecraftサーバーが起動している場合は $RESPONCE_POSITIVE 、起動していない場合は $RESPONCE_NEGATIVE が返されます。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local nameflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
@@ -681,17 +541,39 @@ action_attach()
 		指定したMinecraftサーバーが起動していない場合は $RESPONCE_NEGATIVE が返されます。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local nameflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
@@ -774,17 +656,54 @@ action_start()
 		
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local optionflag=()
+	local argsflag=()
+	local nameflag=''
+	local versionflag=''
+	local executeflag=''
+	local cwdflag=''
+	local javaflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--version)	shift; versionflag="$1"; shift;;
+			--execute)	shift; executeflag="$1"; shift;;
+			--option)	shift; optionflag+=("$1"); shift;;
+			--args) 	shift; argsflag+=("$1"); shift;;
+			--cwd)  	shift; cwdflag="$1"; shift;;
+			--java) 	shift; javaflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+				[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
+				[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
@@ -896,17 +815,39 @@ action_stop()
 		
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local nameflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ ${#args[@]} -ne 0 ]; then
 			profile_file="${args[0]}"
@@ -986,17 +927,41 @@ action_command()
 		
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local nameflag=''
+	local cwdflag=''
+	local ownerflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--name) 	shift; nameflag="$1"; shift;;
+			--cwd)  	shift; cwdflag="$1"; shift;;
+			--owner)	shift; ownerflag="$1"; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	local send_command
 	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
 		if [ "$nameflag" = "" ]; then
@@ -1072,17 +1037,44 @@ action_mcversions()
 		クエリに正規表現を用いて結果を絞り込むことができます。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local latestflag=''
+	local noreleaseflag=''
+	local snapshotflag=''
+	local oldalphaflag=''
+	local oldbetaflag=''
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--latest)   	latestflag="--latest"; shift;;
+			--no-release)	noreleaseflag="--no-release"; shift;;
+			--snapshot) 	snapshotflag="--snapshot"; shift;;
+			--old-alpha) 	oldalphaflag="--old-alpha"; shift;;
+			--old-beta) 	oldbetaflag="--old-beta"; shift;;
+			--help)     	helpflag='--help'; shift;;
+			--usage)    	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	check || { echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"; return $RESPONCE_ERROR; }
 	fetch_mcversions || return $?
 	if [ -n "$latestflag" ]; then
@@ -1137,17 +1129,35 @@ action_mcdownload()
 		<バージョン>に指定可能なものは$0 mcversionsで確認可能です。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--help)     	helpflag='--help'; shift;;
+			--usage)    	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
+
 	check || { echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"; return $RESPONCE_ERROR; }
 	fetch_mcversions
 	if [ ${#args[@]} -lt 1 ]; then
@@ -1205,17 +1215,35 @@ action_spigotbuild()
 		<バージョン>に指定可能なものは https://www.spigotmc.org/wiki/buildtools/#versions を確認してください。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local args=()
+	local helpflag=''
+	local usageflag=''
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--help)     	helpflag='--help'; shift;;
+			--usage)    	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
+
 	check || {
 		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"
 		return $RESPONCE_ERROR
@@ -1278,17 +1306,34 @@ action_check()
 		checkに失敗した場合は必要なパッケージが不足していないか確認してください。
 		__EOF
 	}
-	if [ "$helpflag" != "" ]; then
-		version
-		echo
-		usage
-		echo
-		help
-		return
-	elif [ "$usageflag" != "" ]; then
-		usage
-		return
-	fi
+	local helpflag=''
+	local usageflag=''
+	local args=()
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--)	shift; break;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				shift
+				;;
+			*)
+				args=("${args[@]}" "$1")
+				shift
+				;;
+		esac
+	done
+	while (( $# > 0 ))
+	do
+		args=("${args[@]}" "$1")
+		shift
+	done
+
+	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
 	if check ;then
 		echo "mcsvutils: チェックに成功しました。"
 		return $RESPONCE_POSITIVE
@@ -1338,11 +1383,35 @@ action_none()
 	fi
 }
 
-if [ "$action" != "" ]; then
-	"action_$action"
-	exit $?
+# Analyze arguments --------------------
+subcommand=""
+if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
+	subcommand="none"
+	while (( $# > 0 ))
+	do
+		case $1 in
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
+			--*)	echo_invalid_flag "$1"; shift;;
+			-*)
+				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				shift
+				;;
+			*)	break;;
+		esac
+	done
 else
-	echoerr "mcsvutils: [E] 無効なアクションを指定しました。"
-	usage >&2
-	return $RESPONCE_ERROR
+	for item in "${SUBCOMMANDS[@]}"
+	do
+		[ "$item" == "$1" ] && {
+			subcommand="$item"
+			shift
+			break
+		}
+	done
+fi
+
+if [ -n "$subcommand" ]
+	then "action_$subcommand" "$@"; exit $?
+	else echoerr "mcsvutils: [E] 無効なアクションを指定しました。"; usage >&2; return $RESPONCE_ERROR
 fi
