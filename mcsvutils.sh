@@ -99,40 +99,6 @@ readonly SCRIPT_LOCATION
 # Minecraftバージョン管理ディレクトリ設定
 # Minecraftバージョンの管理を行うためのディレクトリを設定します。
 [ -z "$MCSVUTILS_VERSIONS_LOCATION" ] && readonly MCSVUTILS_VERSIONS_LOCATION="$SCRIPT_LOCATION/versions"
-# ビルトインモード設定
-# 0以外の値に設定し、下の設定を変更することでプロファイルデータを使用しない「ビルトインモード」としてスクリプトを構成できます。
-# ビルトインモードの場合、プロファイルの作成・読み込みができなくなります。
-readonly MCSVUTILS_BUILTINMODE=0
-# サービス名
-# ビルトインモードとしてスクリプトを構成する場合の、サービス名を指定します。
-# プロファイルでの --name オプションと同じ働きをします。
-# ビルトインモードを実行する場合は必須です。
-readonly MCSVUTILS_SERVICE_NAME="mcserver"
-# 実行jarファイル
-# ビルトインモードとしてスクリプトを構成する場合の、実行するjarファイルを指定します。
-# プロファイルでの --execute オプションと同じ働きをします。
-# ビルトインモードを実行する場合は必須です。
-readonly MCSVUTILS_SERVICE_EXECUTE=""
-# 実行オプション
-# ビルトインモードとしてスクリプトを構成する場合の、javaに渡す引数を指定します。
-# プロファイルでの --option オプションと同じ働きをします。
-readonly MCSVUTILS_SERVICE_OPTIONS=()
-# jar呼び出し引数
-# ビルトインモードとしてスクリプトを構成する場合の、jarに渡す引数を指定します。
-# プロファイルでの --args オプションと同じ働きをします。
-readonly MCSVUTILS_SERVICE_ARGS=()
-# 作業ディレクトリ
-# ビルトインモードとしてスクリプトを構成する場合の、作業ディレクトリを指定します。
-# プロファイルでの --cwd オプションと同じ働きをします。
-readonly MCSVUTILS_SERVICE_CWD="./"
-# java環境
-# ビルトインモードとしてスクリプトを構成する場合の、java実行環境を指定します。
-# プロファイルでの --java オプションと同じ働きをします。
-readonly MCSVUTILS_SERVICE_JRE=""
-# サービス所有者
-# ビルトインモードとしてスクリプトを構成する場合の、サービス所有者を指定します。
-# プロファイルでの --owner オプションと同じ働きをします。
-readonly MCSVUTILS_SERVICE_OWNER=""
 ## -------------------------------------
 
 echo_invalid_flag()
@@ -224,20 +190,10 @@ profile_args=""
 profile_cwd=""
 profile_java=""
 profile_owner=""
-if [ $MCSVUTILS_BUILTINMODE -ne 0 ]; then
-	profile_name="$MCSVUTILS_SERVICE_NAME"
-	profile_execute="$MCSVUTILS_SERVICE_EXECUTE"
-	profile_options=("${MCSVUTILS_SERVICE_OPTIONS[@]}")
-	profile_args=("${MCSVUTILS_SERVICE_ARGS[@]}")
-	profile_cwd="$MCSVUTILS_SERVICE_CWD"
-	profile_java="$MCSVUTILS_SERVICE_JRE"
-	profile_owner="$MCSVUTILS_SERVICE_OWNER"
-fi
 
 # プロファイルを読み込み
 profile_load()
 {
-	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの読み込みはできません"; return $RESPONCE_ERROR; }
 	[ -e "$profile_file" ] || { echoerr "mcsvutils: [E] $profile_file というファイルが見つかりません"; return $RESPONCE_ERROR; }
 	profile_version=$(jq -r ".version | numbers" "$profile_file")
 	if ! [ $? ] || [ "$profile_version" != "$DATA_VERSION" ]; then echoerr "mcsvutils: [E] 対応していないプロファイルのバージョンです"; return $RESPONCE_ERROR; fi
@@ -264,7 +220,6 @@ profile_load()
 # プロファイルを生成・保存
 profile_save()
 {
-	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの書き込みはできません"; return $RESPONCE_ERROR; }
 	result=$(echo "{}" | jq -c "{ version: $DATA_VERSION, name: \"$profile_name\", execute: \"$profile_execute\" }")
 	local options="[]"
 	if [ ${#profile_options[@]} -ne 0 ]; then
@@ -388,7 +343,6 @@ action_create()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	[ $MCSVUTILS_BUILTINMODE -ne 0 ] && { echoerr "mcsvutils: [E] ビルトインモードで実行しています。プロファイルの作成はできません"; return $RESPONCE_ERROR; }
 	local result
 	if [ "$nameflag" = "" ]; then
 		echoerr "mcsvutils: [E] --nameは必須です"
@@ -473,24 +427,19 @@ action_status()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
-		if [ ${#args[@]} -ne 0 ]; then
-			profile_file="${args[0]}"
-			if [ "$nameflag" != "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
-				return $RESPONCE_ERROR
-			fi
-			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
-		else
-			if [ "$nameflag" = "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
-				return $RESPONCE_ERROR
-			fi
-			profile_name=$nameflag
+	if [ ${#args[@]} -ne 0 ]; then
+		profile_file="${args[0]}"
+		if [ "$nameflag" != "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+			return $RESPONCE_ERROR
 		fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
-		echo "mcsvutils: ビルトインモードで実行しています"
-		echo "  サービス名: $profile_name"
+		if [ "$nameflag" = "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$nameflag
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -574,24 +523,19 @@ action_attach()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
-		if [ ${#args[@]} -ne 0 ]; then
-			profile_file="${args[0]}"
-			if [ "$nameflag" != "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
-				return $RESPONCE_ERROR
-			fi
-			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
-		else
-			if [ "$nameflag" = "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
-				return $RESPONCE_ERROR
-			fi
-			profile_name=$nameflag
+	if [ ${#args[@]} -ne 0 ]; then
+		profile_file="${args[0]}"
+		if [ "$nameflag" != "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+			return $RESPONCE_ERROR
 		fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
-		echo "mcsvutils: ビルトインモードで実行しています"
-		echo "  サービス名: $profile_name"
+		if [ "$nameflag" = "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$nameflag
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -704,25 +648,20 @@ action_start()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
-		if [ ${#args[@]} -ne 0 ]; then
-			profile_file="${args[0]}"
-			if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
-				return $RESPONCE_ERROR
-			fi
-			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
-		else
-			if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
-				return $RESPONCE_ERROR
-			fi
-			profile_name=$nameflag
-			profile_execute=$executeflag
+	if [ ${#args[@]} -ne 0 ]; then
+		profile_file="${args[0]}"
+		if [ "$nameflag" != "" ] || [ "$executeflag" != "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前と実行ファイルの指定は無効です"
+			return $RESPONCE_ERROR
 		fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
-		echo "mcsvutils: ビルトインモードで実行しています"
-		echo "  サービス名: $profile_name"
+		if [ "$nameflag" = "" ] || [ "$executeflag" = "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前と実行ファイルの指定は必須です"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$nameflag
+		profile_execute=$executeflag
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -848,24 +787,19 @@ action_stop()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
-		if [ ${#args[@]} -ne 0 ]; then
-			profile_file="${args[0]}"
-			if [ "$nameflag" != "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
-				return $RESPONCE_ERROR
-			fi
-			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
-		else
-			if [ "$nameflag" = "" ]; then
-				echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
-				return $RESPONCE_ERROR
-			fi
-			profile_name=$nameflag
+	if [ ${#args[@]} -ne 0 ]; then
+		profile_file="${args[0]}"
+		if [ "$nameflag" != "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定した場合、名前の指定は無効です"
+			return $RESPONCE_ERROR
 		fi
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
 	else
-		echo "mcsvutils: ビルトインモードで実行しています"
-		echo "  サービス名: $profile_name"
+		if [ "$nameflag" = "" ]; then
+			echoerr "mcsvutils: [E] プロファイルを指定していない場合、名前の指定は必須です"
+			return $RESPONCE_ERROR
+		fi
+		profile_name=$nameflag
 	fi
 	if [ "$profile_name" == "" ]; then
 		echoerr "mcsvctrl: [E] プロファイルの名前が指定されていません"
@@ -963,21 +897,15 @@ action_command()
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
 	local send_command
-	if [ $MCSVUTILS_BUILTINMODE -eq 0 ]; then
-		if [ "$nameflag" = "" ]; then
-			profile_file="${args[0]}"
-			if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
-			for index in $(seq 1 $((${#args[@]} - 1)) )
-			do
-				send_command="$send_command${args[$index]} "
-			done
-		else
-			profile_name=$nameflag
-			send_command="${args[*]}"
-		fi
+	if [ "$nameflag" = "" ]; then
+		profile_file="${args[0]}"
+		if ! profile_load; then echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; fi
+		for index in $(seq 1 $((${#args[@]} - 1)) )
+		do
+			send_command="$send_command${args[$index]} "
+		done
 	else
-		echo "mcsvutils: ビルトインモードで実行しています"
-		echo "  サービス名: $profile_name"
+		profile_name=$nameflag
 		send_command="${args[*]}"
 	fi
 	if [ "$profile_name" == "" ]; then
