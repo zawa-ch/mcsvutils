@@ -197,7 +197,7 @@ profile_check_integrity()
 action_profile()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "info" "create")
+	local SUBCOMMANDS=("help" "info" "create" "upgrade")
 	usage()
 	{
 		cat <<- __EOF
@@ -215,6 +215,7 @@ action_profile()
 		  help     このヘルプを表示する
 		  info     プロファイルの内容を表示する
 		  create   プロファイルを作成する
+		  upgrade  プロファイルを新しいフォーマットにする
 		__EOF
 	}
 
@@ -411,6 +412,130 @@ action_profile()
 		else
 			result=$(echo "$result" | jq -c '.owner |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
 		fi
+		profile_data="$result"
+		if [ -n "$outflag" ]; then
+			echo "$profile_data" > "$outflag"
+		else
+			echo "$profile_data"
+		fi
+	}
+	action_profile_upgrade()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 profile upgrade [オプション] [プロファイル]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			profile upgrade はMinecraftサーバーのプロファイルのバージョンを最新にします。
+			プロファイルにはプロファイルデータが記述されたファイルのパスを指定します。
+			ファイルの指定がなかった場合は、標準入力から読み込まれます。
+
+			--out | -o
+			    出力先ファイル名を指定します。
+			    指定がなかった場合は標準出力に書き出されます。
+			__EOF
+		}
+		local args=()
+		local outflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--out)  	shift; outflag="$1"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		if [ "${#args[@]}" -ge 1 ]
+			then { profile_open "${args[0]}" || return $RESPONCE_ERROR; }
+			else { profile_open || return $RESPONCE_ERROR; }
+		fi
+		local version=''
+		local servicename=''
+		local mcversion=''
+		local executejar=''
+		local owner=''
+		local cwd=''
+		local jre=''
+		local options=''
+		local arguments=''
+		version="$(profile_get_version)" || return $RESPONCE_ERROR
+		echoerr "mcsvutils: 読み込まれたプロファイルのバージョン: $version"
+		case "$version" in
+			"$DATA_VERSION") {
+				if profile_check_integrity
+					then echoerr "mcsvutils: [W] このプロファイルはすでに最新です。更新の必要はありません。"; return $RESPONCE_NEGATIVE;
+					else return $RESPONCE_ERROR;
+				fi
+			};;
+			"1") {
+				servicename=$(echo "$profile_data" | jq -r ".name | strings") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				[ -z "$servicename" ] && { echoerr "mcsvutils: [E] .name要素が空であるか、正しい型ではありません"; return $RESPONCE_ERROR; }
+				executejar=$(echo "$profile_data" | jq -r ".execute | strings") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				[ -z "$executejar" ] && { echoerr "mcsvutils: [E] .execute要素が空であるか、正しい型ではありません"; return $RESPONCE_ERROR; }
+				owner=$(echo "$profile_data" | jq -r ".owner | strings") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				cwd=$(echo "$profile_data" | jq -r ".cwd | strings") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				jre=$(echo "$profile_data" | jq -r ".javapath | strings") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				options=$(echo "$profile_data" | jq -c ".options") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+				arguments=$(echo "$profile_data" | jq -c ".args") || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; }
+			};;
+			*) {
+				echoerr "mcsvutils: [E] サポートされていないバージョン $version が選択されました。"
+				return $RESPONCE_ERROR
+			};;
+		esac
+
+		local result="{}"
+		result=$(echo "$result" | jq -c --argjson version "$DATA_VERSION" '.version |= $version') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		[ -z "$servicename" ] && { echoerr "mcsvutils: [E] サービス名が空です"; return $RESPONCE_ERROR; }
+		result=$(echo "$result" | jq -c --arg servicename "$servicename" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		{ [ -z "$mcversion" ] && [ -z "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとmcversionがどちらも空です"; return $RESPONCE_ERROR; }
+		{ [ -n "$mcversion" ] && [ -n "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとmcversionは同時に存在できません"; return $RESPONCE_ERROR; }
+		[ -n "$mcversion" ] && { result=$(echo "$result" | jq -c --arg mcversion "$mcversion" '.mcversion |= $mcversion | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$executejar" ] && { result=$(echo "$result" | jq -c --arg executejar "$executejar" '.executejar |= $executejar | .mcversion |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		if [ -n "$owner" ]; then
+			result=$(echo "$result" | jq -c --arg owner "$owner" '.owner |= $owner') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.owner |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		if [ -n "$cwd" ]; then
+			result=$(echo "$result" | jq -c --arg cwd "$cwd" '.cwd |= $cwd') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.cwd |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		if [ -n "$jre" ]; then
+			result=$(echo "$result" | jq -c --arg jre "$jre" '.jre |= $jre') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		else
+			result=$(echo "$result" | jq -c '.jre |= null') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		fi
+		result=$(echo "$result" | jq -c --argjson options "$options" '.options |= $options') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
+		result=$(echo "$result" | jq -c --argjson arguments "$arguments" '.arguments |= $arguments') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
 		profile_data="$result"
 		if [ -n "$outflag" ]; then
 			echo "$profile_data" > "$outflag"
