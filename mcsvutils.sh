@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "start" "stop" "attach" "command")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server" "stop" "attach" "command")
 
 usage()
 {
@@ -48,7 +48,6 @@ help()
 	cat <<- __EOF
 	  profile     サーバーインスタンスのプロファイルを管理する
 	  server      サーバーインスタンスを管理する
-	  start       サーバーを起動する
 	  stop        サーバーを停止する
 	  attach      サーバーのコンソールに接続する
 	  command     サーバーにコマンドを送信する
@@ -416,7 +415,7 @@ action_profile()
 action_server()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "status")
+	local SUBCOMMANDS=("help" "status" "start")
 	usage()
 	{
 		cat <<- __EOF
@@ -433,6 +432,7 @@ action_server()
 
 		  help     このヘルプを表示する
 		  status   インスタンスの状態を問い合わせる
+		  start    インスタンスを開始する
 		__EOF
 	}
 
@@ -528,6 +528,161 @@ action_server()
 			echo "mcsvutils: ${servicename} は起動していません"
 			return $RESPONCE_NEGATIVE
 		fi
+	}
+	action_server_start()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 server start -p <プロファイル> [オプション] [引数]
+			$0 server start -n <名前> -r <バージョン> [オプション] [引数]
+			$0 server start -n <名前> -e <jarファイル> [オプション] [引数]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			server start はMinecraftサーバーのインスタンスを開始します。
+			インスタンスの開始には名前とバージョン、もしくはプロファイルのどちらかを指定する必要があります。
+			いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
+
+			--profile | -p
+			    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
+			    名前・バージョンをともに指定していない場合のみ必須です。
+			    名前・バージョンを指定している場合はこのオプションを指定することはできません。
+			--name | -n
+			    インスタンスの名前を指定します。
+			    プロファイルを指定しない場合のみ必須です。
+			    プロファイルを指定している場合はこのオプションを指定することはできません。
+			--version | -r
+			    サーバーとして実行するMinecraftのバージョンを指定します。
+			    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    --executeオプションと同時に使用することはできません。
+			    また、プロファイルを指定している場合はこのオプションを指定することはできません。
+			--execute | -e
+			    サーバーとして実行するjarファイルを指定します。
+			    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    --versionオプションと同時に使用することはできません。
+			    また、プロファイルを指定している場合はこのオプションを指定することはできません。
+			--owner | -u
+			    実行時のユーザーを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			--cwd
+			    実行時の作業ディレクトリを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			--java
+			    javaの環境を指定します。
+			    この引数を指定するとインストールされているjavaとは異なるjavaを使用することができます。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			--option
+			    実行時にjavaに渡すオプションを指定します。
+			    このオプションを指定するとプロファイルの設定を上書きします。
+			__EOF
+		}
+		local args=()
+		local profileflag=''
+		local nameflag=''
+		local versionflag=''
+		local executeflag=''
+		local ownerflag=''
+		local cwdflag=''
+		local javaflag=''
+		local optionflag=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--profile) 	shift; profileflag="$1"; shift;;
+				--name) 	shift; nameflag="$1"; shift;;
+				--version)	shift; versionflag="$1"; shift;;
+				--execute)	shift; executeflag="$1"; shift;;
+				--owner)	shift; ownerflag="$1"; shift;;
+				--cwd)  	shift; cwdflag="$1"; shift;;
+				--java) 	shift; javaflag="$1"; shift;;
+				--option)	shift; optionflag+=("$1"); shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
+					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
+					[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
+					[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
+					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		local servicename=''
+		local mcversion=''
+		local executejar=''
+		local options=()
+		local arguments=()
+		local cwd=''
+		local jre=''
+		local owner=''
+		if [ -n "$nameflag" ] || [ -n "$versionflag" ] || [ -n "$executeflag" ]; then
+			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前・バージョンおよびjarファイルの指定は無効です"; return $RESPONCE_ERROR; }
+			servicename=$nameflag
+			[ -n "$versionflag" ] && [ -n "$executeflag" ] && { echoerr "mcsvutils: [E] バージョンとjarファイルは同時に指定できません"; return $RESPONCE_ERROR; }
+			[ -n "$versionflag" ] && mcversion=$versionflag
+			[ -n "$executeflag" ] && executejar=$executeflag
+		else
+			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
+			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
+			mcversion="$(profile_get_mcversion)" || return $RESPONCE_ERROR
+			executejar="$(profile_get_executejar)" || return $RESPONCE_ERROR
+			for item in $(profile_get_options); do options+=("$item"); done
+			for item in $(profile_get_arguments); do arguments+=("$item"); done
+			cwd="$(profile_get_cwd)" || return $RESPONCE_ERROR
+			jre="$(profile_get_jre)" || return $RESPONCE_ERROR
+			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+		fi
+		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
+		[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvctrl: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
+		[ "${#optionflag[@]}" -ne 0 ] && options=("${optionflag[@]}")
+		[ "${#args[@]}" -ne 0 ] && arguments=("${args[@]}")
+		[ -n "$cwdflag" ] && cwd=$cwdflag
+		[ -n "$javaflag" ] && jre=$javaflag
+		[ -n "$ownerflag" ] && owner=$ownerflag
+		[ -z "$cwd" ] && cwd="./"
+		[ -z "$jre" ] && jre="java"
+		[ -z "$owner" ] && owner="$(whoami)"
+		as_user_script "$owner" <<- __EOF
+		screen -list $servicename > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; exit $RESPONCE_NEGATIVE; }
+		echo "mcsvutils: $servicename を起動しています"
+		cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; exit $RESPONCE_ERROR; }
+		invocations="$jre"
+		[ "${#options[@]}" -ne 0 ] && invocations="\$invocations ${options[@]}"
+		invocations="\$invocations -jar $executejar"
+		[ "${#arguments[@]}" -ne 0 ] && invocations="\$invocations ${arguments[@]}"
+		screen -h 1024 -dmS "$servicename" \$invocations
+		sleep .5
+		if screen -list "$servicename" > /dev/null; then
+			echo "mcsvutils: ${servicename} が起動しました"
+			exit $RESPONCE_POSITIVE
+		else
+			echo "mcsvutils: [E] ${servicename} を起動できませんでした" >&2
+			exit $RESPONCE_ERROR
+		fi
+		__EOF
 	}
 
 	# Analyze arguments --------------------
@@ -651,162 +806,6 @@ action_attach()
 	[ -z "$owner" ] && owner="$(whoami)"
 	as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
 	as_user "$owner" "screen -r \"$servicename\""
-}
-
-action_start()
-{
-	usage()
-	{
-		cat <<- __EOF
-		使用法:
-		$0 start -p <プロファイル> [オプション] [引数]
-		$0 start -n <名前> -r <バージョン> [オプション] [引数]
-		$0 start -n <名前> -e <jarファイル> [オプション] [引数]
-		__EOF
-	}
-	help()
-	{
-		cat <<- __EOF
-		start はMinecraftサーバーのインスタンスを開始します。
-		インスタンスの開始には名前とバージョン、もしくはプロファイルのどちらかを指定する必要があります。
-		いずれの指定もなかった場合は、標準入力からプロファイルを取得します。
-
-		--profile | -p
-		    インスタンスを実行するための情報を記したプロファイルの場所を指定します。
-		    名前・バージョンをともに指定していない場合のみ必須です。
-		    名前・バージョンを指定している場合はこのオプションを指定することはできません。
-		--name | -n
-		    インスタンスの名前を指定します。
-		    プロファイルを指定しない場合のみ必須です。
-		    プロファイルを指定している場合はこのオプションを指定することはできません。
-		--version | -r
-		    サーバーとして実行するMinecraftのバージョンを指定します。
-		    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-		    --executeオプションと同時に使用することはできません。
-		    また、プロファイルを指定している場合はこのオプションを指定することはできません。
-		--execute | -e
-		    サーバーとして実行するjarファイルを指定します。
-		    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-		    --versionオプションと同時に使用することはできません。
-		    また、プロファイルを指定している場合はこのオプションを指定することはできません。
-		--owner | -u
-		    実行時のユーザーを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		--cwd
-		    実行時の作業ディレクトリを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		--java
-		    javaの環境を指定します。
-		    この引数を指定するとインストールされているjavaとは異なるjavaを使用することができます。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		--option
-		    実行時にjavaに渡すオプションを指定します。
-		    このオプションを指定するとプロファイルの設定を上書きします。
-		__EOF
-	}
-	local args=()
-	local profileflag=''
-	local nameflag=''
-	local versionflag=''
-	local executeflag=''
-	local ownerflag=''
-	local cwdflag=''
-	local javaflag=''
-	local optionflag=()
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--profile) 	shift; profileflag="$1"; shift;;
-			--name) 	shift; nameflag="$1"; shift;;
-			--version)	shift; versionflag="$1"; shift;;
-			--execute)	shift; executeflag="$1"; shift;;
-			--owner)	shift; ownerflag="$1"; shift;;
-			--cwd)  	shift; cwdflag="$1"; shift;;
-			--java) 	shift; javaflag="$1"; shift;;
-			--option)	shift; optionflag+=("$1"); shift;;
-			--help) 	helpflag='--help'; shift;;
-			--usage)	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-				[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-				[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
-				[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
-				[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
-
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
-	[ -n "$usageflag" ] && { usage; return; }
-	local servicename=''
-	local mcversion=''
-	local executejar=''
-	local options=()
-	local arguments=()
-	local cwd=''
-	local jre=''
-	local owner=''
-	if [ -n "$nameflag" ] || [ -n "$versionflag" ] || [ -n "$executeflag" ]; then
-		[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前・バージョンおよびjarファイルの指定は無効です"; return $RESPONCE_ERROR; }
-		servicename=$nameflag
-		[ -n "$versionflag" ] && [ -n "$executeflag" ] && { echoerr "mcsvutils: [E] バージョンとjarファイルは同時に指定できません"; return $RESPONCE_ERROR; }
-		[ -n "$versionflag" ] && mcversion=$versionflag
-		[ -n "$executeflag" ] && executejar=$executeflag
-	else
-		if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
-		profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
-		servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-		mcversion="$(profile_get_mcversion)" || return $RESPONCE_ERROR
-		executejar="$(profile_get_executejar)" || return $RESPONCE_ERROR
-		for item in $(profile_get_options); do options+=("$item"); done
-		for item in $(profile_get_arguments); do arguments+=("$item"); done
-		cwd="$(profile_get_cwd)" || return $RESPONCE_ERROR
-		jre="$(profile_get_jre)" || return $RESPONCE_ERROR
-		owner="$(profile_get_owner)" || return $RESPONCE_ERROR
-	fi
-	[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-	[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvctrl: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
-	[ "${#optionflag[@]}" -ne 0 ] && options=("${optionflag[@]}")
-	[ "${#args[@]}" -ne 0 ] && arguments=("${args[@]}")
-	[ -n "$cwdflag" ] && cwd=$cwdflag
-	[ -n "$javaflag" ] && jre=$javaflag
-	[ -n "$ownerflag" ] && owner=$ownerflag
-	[ -z "$cwd" ] && cwd="./"
-	[ -z "$jre" ] && jre="java"
-	[ -z "$owner" ] && owner="$(whoami)"
-	as_user_script "$owner" <<- __EOF
-	screen -list $servicename > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; exit $RESPONCE_NEGATIVE; }
-	echo "mcsvutils: $servicename を起動しています"
-	cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; exit $RESPONCE_ERROR; }
-	invocations="$jre"
-	[ "${#options[@]}" -ne 0 ] && invocations="\$invocations ${options[@]}"
-	invocations="\$invocations -jar $executejar"
-	[ "${#arguments[@]}" -ne 0 ] && invocations="\$invocations ${arguments[@]}"
-	screen -h 1024 -dmS "$servicename" \$invocations
-	sleep .5
-	if screen -list "$servicename" > /dev/null; then
-		echo "mcsvutils: ${servicename} が起動しました"
-		exit $RESPONCE_POSITIVE
-	else
-		echo "mcsvutils: [E] ${servicename} を起動できませんでした" >&2
-		exit $RESPONCE_ERROR
-	fi
-	__EOF
 }
 
 action_stop()
