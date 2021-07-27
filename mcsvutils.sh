@@ -68,15 +68,6 @@ help()
 	__EOF
 }
 
-oncheckfail()
-{
-	cat >&2 <<- __EOF
-	mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください。
-	    このスクリプトを実行するために必要なソフトウェアは以下のとおりです:
-	    bash sudo wget curl jq screen
-	__EOF
-}
-
 ## Const -------------------------------
 readonly VERSION_MANIFEST_LOCATION='https://launchermeta.mojang.com/mc/game/version_manifest.json'
 readonly SPIGOT_BUILDTOOLS_LOCATION='https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar'
@@ -105,6 +96,15 @@ echo_invalid_flag()
 {
 	echo "mcsvutils: [W] 無効なオプション $1 が指定されています" >&2
 	echo "通常の引数として読み込ませる場合は先に -- を使用してください" >&2
+}
+
+oncheckfail()
+{
+	cat >&2 <<- __EOF
+	mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください。
+	    このスクリプトを実行するために必要なソフトウェアは以下のとおりです:
+	    bash sudo wget curl jq screen
+	__EOF
 }
 
 # エラー出力にログ出力
@@ -971,7 +971,8 @@ action_mcversions()
 
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
-	check || { echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"; return $RESPONCE_ERROR; }
+
+	check || { oncheckfail; return $RESPONCE_ERROR; }
 	fetch_mcversions || return $?
 	if [ -n "$latestflag" ]; then
 		if [ -z "$snapshotflag" ]; then
@@ -1054,7 +1055,7 @@ action_mcdownload()
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
 
-	check || { echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"; return $RESPONCE_ERROR; }
+	check || { oncheckfail; return $RESPONCE_ERROR; }
 	fetch_mcversions
 	if [ ${#args[@]} -lt 1 ]; then
 		echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
@@ -1140,10 +1141,7 @@ action_spigotbuild()
 	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 	[ -n "$usageflag" ] && { usage; return; }
 
-	check || {
-		echoerr "mcsvutils: [E] 動作要件のチェックに失敗しました。必要なパッケージがインストールされているか確認してください"
-		return $RESPONCE_ERROR
-	}
+	check || { oncheckfail; return $RESPONCE_ERROR; }
 	[ ${#args[@]} -lt 1 ] && {
 		echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"
 		return $RESPONCE_ERROR
