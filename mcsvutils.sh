@@ -38,8 +38,8 @@ readonly SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload"
 usage()
 {
 	cat <<- __EOF
-	使用法: $0 <アクション> [オプション] ...
-	使用可能なアクション: ${SUBCOMMANDS[@]}
+	使用法: $0 <サブコマンド> ...
+	使用可能なサブコマンド: ${SUBCOMMANDS[@]}
 	__EOF
 }
 
@@ -160,13 +160,7 @@ check()
 
 # Minecraftバージョンマニフェストファイルの取得
 VERSION_MANIFEST=
-fetch_mcversions()
-{
-	VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION") || {
-		echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"
-		return $RESPONCE_ERROR
-	}
-}
+fetch_mcversions() { VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION") || { echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"; return $RESPONCE_ERROR; } }
 
 # Minecraftコマンドを実行
 # $1: サーバー所有者
@@ -911,13 +905,12 @@ action_mcversions()
 	{
 		cat <<- __EOF
 		使用法: $0 mcversions [オプション] [クエリ]
-		指定可能なオプション: --latest --no-release --snapshot --old-alpha --old-beta
 		__EOF
 	}
 	help()
 	{
 		cat <<- __EOF
-		mcversionsはMinecraftサーバーのバージョン一覧を出力します。
+		mcversions はMinecraftサーバーのバージョン一覧を出力します。
 		
 		  --latest
 		    最新のバージョンを表示する
@@ -935,20 +928,20 @@ action_mcversions()
 	}
 	local args=()
 	local latestflag=''
-	local noreleaseflag=''
+	local no_releaseflag=''
 	local snapshotflag=''
-	local oldalphaflag=''
-	local oldbetaflag=''
+	local old_alphaflag=''
+	local old_betaflag=''
 	local helpflag=''
 	local usageflag=''
 	while (( $# > 0 ))
 	do
 		case $1 in
 			--latest)   	latestflag="--latest"; shift;;
-			--no-release)	noreleaseflag="--no-release"; shift;;
+			--no-release)	no_releaseflag="--no-release"; shift;;
 			--snapshot) 	snapshotflag="--snapshot"; shift;;
-			--old-alpha) 	oldalphaflag="--old-alpha"; shift;;
-			--old-beta) 	oldbetaflag="--old-beta"; shift;;
+			--old-alpha) 	old_alphaflag="--old-alpha"; shift;;
+			--old-beta) 	old_betaflag="--old-beta"; shift;;
 			--help)     	helpflag='--help'; shift;;
 			--usage)    	usageflag='--usage'; shift;;
 			--)	shift; break;;
@@ -982,10 +975,10 @@ action_mcversions()
 		fi
 	else
 		local select_types="false"
-		[ -z "$noreleaseflag" ] && select_types="$select_types or .type == \"release\""
+		[ -z "$no_releaseflag" ] && select_types="$select_types or .type == \"release\""
 		[ -n "$snapshotflag" ] && select_types="$select_types or .type == \"snapshot\""
-		[ -n "$oldbetaflag" ] && select_types="$select_types or .type == \"old_beta\""
-		[ -n "$oldalphaflag" ] &&  select_types="$select_types or .type == \"old_alpha\""
+		[ -n "$old_betaflag" ] && select_types="$select_types or .type == \"old_beta\""
+		[ -n "$old_alphaflag" ] &&  select_types="$select_types or .type == \"old_alpha\""
 		local select_ids
 		if [ ${#args[@]} -ne 0 ]; then
 			select_ids="false"
@@ -1142,40 +1135,20 @@ action_spigotbuild()
 	[ -n "$usageflag" ] && { usage; return; }
 
 	check || { oncheckfail; return $RESPONCE_ERROR; }
-	[ ${#args[@]} -lt 1 ] && {
-		echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"
-		return $RESPONCE_ERROR
-	}
+	[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
 	local selected_version="${args[0]}"
 	local work_dir
 	work_dir="$TEMP/mcsvutils-$(cat /proc/sys/kernel/random/uuid)"
 	(
-		mkdir -p "$work_dir" || {
-			echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"
-			return $RESPONCE_ERROR
-		}
-		cd "$work_dir" || {
-			echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"
-			return $RESPONCE_ERROR
-		}
-		wget "$SPIGOT_BUILDTOOLS_LOCATION" || {
-			echoerr "[E] BuildTools.jar のダウンロードに失敗しました"
-			return $RESPONCE_ERROR
-		}
-		java -jar BuildTools.jar --rev "$selected_version" || {
-			echoerr "[E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"
-			return $RESPONCE_ERROR
-		}
+		mkdir -p "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"; return $RESPONCE_ERROR; }
+		cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
+		wget "$SPIGOT_BUILDTOOLS_LOCATION" || { echoerr "mcsvutils: [E] BuildTools.jar のダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+		java -jar BuildTools.jar --rev "$selected_version" || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 	)
 	local destination="./"
-	[ ${#args[@]} -ge 2 ] && {
-		destination=${args[1]}
-	}
+	[ ${#args[@]} -ge 2 ] && destination=${args[1]}
 	if [ -e "${work_dir}/spigot-${selected_version}.jar" ]; then
-		mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || {
-			echoerr "[E] jarファイルの移動に失敗しました。"
-			return $RESPONCE_ERROR
-		}
+		mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || { echoerr "[E] jarファイルの移動に失敗しました。"; return $RESPONCE_ERROR; }
 		rm -rf "$work_dir"
 		return $RESPONCE_POSITIVE
 	else
