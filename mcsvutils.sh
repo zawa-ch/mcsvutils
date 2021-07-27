@@ -158,19 +158,6 @@ check()
 VERSION_MANIFEST=
 fetch_mcversions() { VERSION_MANIFEST=$(curl -s "$VERSION_MANIFEST_LOCATION") || { echoerr "mcsvutils: [E] Minecraftバージョンマニフェストファイルのダウンロードに失敗しました"; return $RESPONCE_ERROR; } }
 
-# Minecraftコマンドを実行
-# $1: サーバー所有者
-# $2: サーバーのセッション名
-# $3..: 送信するコマンド
-dispatch_mccommand()
-{
-	local profile_owner="$1"
-	shift
-	local profile_name="$1"
-	shift
-	as_user "$profile_owner" "screen -p 0 -S $profile_name -X eval 'stuff \"$*\"\015'"
-}
-
 profile_data=""
 
 # プロファイルデータを開く
@@ -434,6 +421,19 @@ action_server()
 		  attach   インスタンスのコンソールにアタッチする
 		  command  インスタンスにコマンドを送信する
 		__EOF
+	}
+
+	# Minecraftコマンドを実行
+	# $1: サーバー所有者
+	# $2: サーバーのセッション名
+	# $3..: 送信するコマンド
+	dispatch_mccommand()
+	{
+		local owner="$1"
+		shift
+		local servicename="$1"
+		shift
+		as_user "$owner" "screen -p 0 -S $servicename -X eval 'stuff \"$*\"\015'"
 	}
 
 	# Subcommands --------------------------
