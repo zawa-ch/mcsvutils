@@ -1453,7 +1453,7 @@ action_image()
 action_spigot()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help")
+	local SUBCOMMANDS=("help" "build")
 	usage()
 	{
 		cat <<- __EOF
@@ -1469,10 +1469,77 @@ action_spigot()
 		使用可能なサブコマンドは以下のとおりです。
 
 		  help   このヘルプを表示する
+		  build  BuildTools.jarを使用したサーバーイメージのビルド
 		__EOF
 	}
 
 	# Subcommands --------------------------
+	action_spigotbuild()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 spigot build <バージョン> [保存先]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			spigot build はSpigotサーバーのビルドツールをダウンロードし、Minecraftサーバーからビルドします。
+			<バージョン>に指定可能なものは https://www.spigotmc.org/wiki/buildtools/#versions を確認してください。
+			__EOF
+		}
+		local args=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
+		local selected_version="${args[0]}"
+		local work_dir
+		work_dir="$TEMP/mcsvutils-$(cat /proc/sys/kernel/random/uuid)"
+		(
+			mkdir -p "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"; return $RESPONCE_ERROR; }
+			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
+			wget "$SPIGOT_BUILDTOOLS_LOCATION" || { echoerr "mcsvutils: [E] BuildTools.jar のダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+			java -jar BuildTools.jar --rev "$selected_version" || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
+		)
+		local destination="./"
+		[ ${#args[@]} -ge 2 ] && destination=${args[1]}
+		if [ -e "${work_dir}/spigot-${selected_version}.jar" ]; then
+			mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || { echoerr "[E] jarファイルの移動に失敗しました。"; return $RESPONCE_ERROR; }
+			rm -rf "$work_dir"
+			return $RESPONCE_POSITIVE
+		else
+			echoerr "[W] jarファイルの自動探索に失敗しました。ファイルは移動されません。"
+			return $RESPONCE_NEGATIVE
+		fi
+	}
 
 	# Analyze arguments --------------------
 	local subcommand=""
