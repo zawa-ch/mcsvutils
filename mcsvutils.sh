@@ -1441,7 +1441,7 @@ action_mcdownload()
 	fi
 	if [ "$(sha1sum "$destination" | awk '{print $1}')" = "$dl_sha1" ]; then
 		echo "mcsvutils: データのダウンロードが完了しました"
-		return
+		return $RESPONCE_POSITIVE
 	else
 		echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
 		return $RESPONCE_ERROR
