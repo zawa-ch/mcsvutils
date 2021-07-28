@@ -1409,10 +1409,8 @@ action_mcdownload()
 
 	check || { oncheckfail; return $RESPONCE_ERROR; }
 	fetch_mcversions || return
-	if [ ${#args[@]} -lt 1 ]; then
-		echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
-		return $RESPONCE_ERROR
-	fi
+
+	[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
 	local selected_version
 	selected_version="$(echo "$VERSION_MANIFEST" | jq ".versions[] | select( .id == \"${args[0]}\" )")"
 	if [ "$selected_version" = "" ]; then
