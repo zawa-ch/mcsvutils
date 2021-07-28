@@ -1361,27 +1361,34 @@ action_mcdownload()
 	usage()
 	{
 		cat <<- __EOF
-		使用法: $0 mcdownload <バージョン> [保存先]
+		使用法: $0 mcdownload [-o [保存先]] <バージョン>
 		__EOF
 	}
 	help()
 	{
 		cat <<- __EOF
 		mcdownloadはMinecraftサーバーのjarをダウンロードします。
-		<バージョン>に指定可能なものは$0 mcversionsで確認可能です。
+		<バージョン>に指定可能なものは $0 image find で確認可能です。
+
+		--out | -o
+		    出力先ファイル名を指定します。
+		    指定がなかった場合は規定の名前で書き出されます。
 		__EOF
 	}
 	local args=()
+	local outflag=''
 	local helpflag=''
 	local usageflag=''
 	while (( $# > 0 ))
 	do
 		case $1 in
+			--out)  	shift; outflag="$1"; shift;;
 			--help)     	helpflag='--help'; shift;;
 			--usage)    	usageflag='--usage'; shift;;
 			--)	shift; break;;
 			--*)	echo_invalid_flag "$1"; shift;;
 			-*)
+				[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
 				[[ "$1" =~ h ]] && { helpflag='-h'; }
 				shift
 				;;
@@ -1423,10 +1430,9 @@ action_mcdownload()
 	dl_data=$(echo "$selected_version" | jq -r '.downloads.server.url')
 	dl_sha1=$(echo "$selected_version" | jq -r '.downloads.server.sha1')
 	local destination
-	if [ "${args[1]}" != "" ]; then
-		destination="${args[1]}"
-	else
-		destination="$(basename "$dl_data")"
+	if [ -n "$outflag" ]
+		then destination="$outflag"
+		else destination="$(basename "$dl_data")"
 	fi
 	echo "mcsvutils: データをダウンロードしています..."
 	if ! wget "$dl_data" -O "$destination"; then
