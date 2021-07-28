@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "mcversions" "mcdownload" "spigotbuild" "profile" "server")
+SUBCOMMANDS=("version" "usage" "help" "check" "mcdownload" "spigotbuild" "profile" "server" "image")
 
 usage()
 {
@@ -48,7 +48,7 @@ help()
 	cat <<- __EOF
 	  profile     サーバーインスタンスのプロファイルを管理する
 	  server      サーバーインスタンスを管理する
-	  mcversions  minecraftのバージョンのリストを出力する
+	  image       Minecraftサーバーイメージを管理する
 	  mcdownload  minecraftサーバーをダウンロードする
 	  check       このスクリプトの動作要件を満たしているかチェックする
 	  version     現在のバージョンを表示して終了
@@ -1193,109 +1193,167 @@ action_server()
 	"action_server_$subcommand" "$@"
 }
 
-action_mcversions()
+action_image()
 {
+	# Usage/Help ---------------------------
+	local SUBCOMMANDS=("help" "find")
 	usage()
 	{
 		cat <<- __EOF
-		使用法: $0 mcversions [オプション] [クエリ]
+		使用法: $0 image <サブコマンド>
+		使用可能なサブコマンド: ${SUBCOMMANDS[@]}
 		__EOF
 	}
 	help()
 	{
 		cat <<- __EOF
-		mcversions はMinecraftサーバーのバージョン一覧を出力します。
-		
-		  --latest
-		    最新のバージョンを表示する
-		  --no-release
-		    releaseタグの付いたバージョンを除外する
-		  --snapshot
-		    snapshotタグの付いたバージョンをリストに含める
-		  --old-alpha
-		    old_alphaタグの付いたバージョンをリストに含める
-		  --old-beta
-		    old_betaタグの付いたバージョンをリストに含める
-		
-		クエリに正規表現を用いて結果を絞り込むことができます。
+		image はMinecraftサーバーの実行ファイルイメージを管理します。
+
+		使用可能なサブコマンドは以下のとおりです。
+
+		  help  このヘルプを表示する
+		  find  Miecraftサーバーイメージのバージョン一覧取得
 		__EOF
 	}
-	local args=()
-	local latestflag=''
-	local no_releaseflag=''
-	local snapshotflag=''
-	local old_alphaflag=''
-	local old_betaflag=''
-	local helpflag=''
-	local usageflag=''
-	while (( $# > 0 ))
-	do
-		case $1 in
-			--latest)   	latestflag="--latest"; shift;;
-			--no-release)	no_releaseflag="--no-release"; shift;;
-			--snapshot) 	snapshotflag="--snapshot"; shift;;
-			--old-alpha) 	old_alphaflag="--old-alpha"; shift;;
-			--old-beta) 	old_betaflag="--old-beta"; shift;;
-			--help)     	helpflag='--help'; shift;;
-			--usage)    	usageflag='--usage'; shift;;
-			--)	shift; break;;
-			--*)	echo_invalid_flag "$1"; shift;;
-			-*)
-				[[ "$1" =~ h ]] && { helpflag='-h'; }
-				shift
-				;;
-			*)
-				args=("${args[@]}" "$1")
-				shift
-				;;
-		esac
-	done
-	while (( $# > 0 ))
-	do
-		args=("${args[@]}" "$1")
-		shift
-	done
 
-	[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
-	[ -n "$usageflag" ] && { usage; return; }
+	# Subcommands --------------------------
+	action_image_find()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image find [オプション] [クエリ]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image find はMinecraftサーバーのバージョン一覧を出力します。
 
-	check || { oncheckfail; return $RESPONCE_ERROR; }
-	fetch_mcversions || return $?
-	if [ -n "$latestflag" ]; then
-		if [ -z "$snapshotflag" ]; then
-			echo "$VERSION_MANIFEST" | jq -r '.latest.release'
+			--latest
+			    最新のバージョンを表示する
+			--no-release
+			    releaseタグの付いたバージョンを除外する
+			--snapshot
+			    snapshotタグの付いたバージョンをリストに含める
+			--old-alpha
+			    old_alphaタグの付いたバージョンをリストに含める
+			--old-beta
+			    old_betaタグの付いたバージョンをリストに含める
+
+			クエリに正規表現を用いて結果を絞り込むことができます。
+			__EOF
+		}
+		local args=()
+		local latestflag=''
+		local no_releaseflag=''
+		local snapshotflag=''
+		local old_alphaflag=''
+		local old_betaflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--latest)   	latestflag="--latest"; shift;;
+				--no-release)	no_releaseflag="--no-release"; shift;;
+				--snapshot) 	snapshotflag="--snapshot"; shift;;
+				--old-alpha) 	old_alphaflag="--old-alpha"; shift;;
+				--old-beta) 	old_betaflag="--old-beta"; shift;;
+				--help)     	helpflag='--help'; shift;;
+				--usage)    	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+		fetch_mcversions || return $?
+		if [ -n "$latestflag" ]; then
+			if [ -z "$snapshotflag" ]; then
+				echo "$VERSION_MANIFEST" | jq -r '.latest.release'
+			else
+				echo "$VERSION_MANIFEST" | jq -r '.latest.snapshot'
+			fi
 		else
-			echo "$VERSION_MANIFEST" | jq -r '.latest.snapshot'
+			local select_types="false"
+			[ -z "$no_releaseflag" ] && select_types="$select_types or .type == \"release\""
+			[ -n "$snapshotflag" ] && select_types="$select_types or .type == \"snapshot\""
+			[ -n "$old_betaflag" ] && select_types="$select_types or .type == \"old_beta\""
+			[ -n "$old_alphaflag" ] &&  select_types="$select_types or .type == \"old_alpha\""
+			local select_ids
+			if [ ${#args[@]} -ne 0 ]; then
+				select_ids="false"
+				for search_query in "${args[@]}"
+				do
+					select_ids="$select_ids or test( \"$search_query\" )"
+				done
+			else
+				select_ids="true"
+			fi
+			local result
+			mapfile -t result < <(echo "$VERSION_MANIFEST" | jq -r ".versions[] | select( $select_types ) | .id | select( $select_ids )")
+			if [ ${#result[@]} -ne 0 ]; then
+				for item in "${result[@]}"
+				do
+					echo "$item"
+				done
+				return $RESPONCE_POSITIVE
+			else
+				echoerr "mcsvutils: 対象となるバージョンが存在しません"
+				return $RESPONCE_NEGATIVE
+			fi
 		fi
+	}
+
+	# Analyze arguments --------------------
+	local subcommand=""
+	if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
+		subcommand="none"
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)	break;;
+			esac
+		done
 	else
-		local select_types="false"
-		[ -z "$no_releaseflag" ] && select_types="$select_types or .type == \"release\""
-		[ -n "$snapshotflag" ] && select_types="$select_types or .type == \"snapshot\""
-		[ -n "$old_betaflag" ] && select_types="$select_types or .type == \"old_beta\""
-		[ -n "$old_alphaflag" ] &&  select_types="$select_types or .type == \"old_alpha\""
-		local select_ids
-		if [ ${#args[@]} -ne 0 ]; then
-			select_ids="false"
-			for search_query in "${args[@]}"
-			do
-				select_ids="$select_ids or test( \"$search_query\" )"
-			done
-		else
-			select_ids="true"
-		fi
-		local result
-		mapfile -t result < <(echo "$VERSION_MANIFEST" | jq -r ".versions[] | select( $select_types ) | .id | select( $select_ids )")
-		if [ ${#result[@]} -ne 0 ]; then
-			for item in "${result[@]}"
-			do
-				echo "$item"
-			done
-			return $RESPONCE_POSITIVE
-		else
-			echoerr "mcsvutils: 対象となるバージョンが存在しません"
-			return $RESPONCE_NEGATIVE
-		fi
+		for item in "${SUBCOMMANDS[@]}"
+		do
+			[ "$item" == "$1" ] && {
+				subcommand="$item"
+				shift
+				break
+			}
+		done
 	fi
+	[ -z "$subcommand" ] && { echoerr "mcsvutils: [E] 無効なサブコマンドを指定しました。"; usage >&2; return $RESPONCE_ERROR; }
+	{ [ "$subcommand" == "help" ] || [ -n "$helpflag" ]; } && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
+	[ "$subcommand" == "none" ] && { echoerr "mcsvutils: [E] サブコマンドが指定されていません。"; echoerr "$0 image help で詳細なヘルプを表示します。"; usage >&2; return $RESPONCE_ERROR; }
+	"action_image_$subcommand" "$@"
 }
 
 action_mcdownload()
