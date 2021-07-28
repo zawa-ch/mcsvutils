@@ -1472,8 +1472,8 @@ action_spigotbuild()
 	while (( $# > 0 ))
 	do
 		case $1 in
-			--help)     	helpflag='--help'; shift;;
-			--usage)    	usageflag='--usage'; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
 			--)	shift; break;;
 			--*)	echo_invalid_flag "$1"; shift;;
 			-*)
