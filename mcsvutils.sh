@@ -1480,7 +1480,7 @@ action_spigot()
 		usage()
 		{
 			cat <<- __EOF
-			使用法: $0 spigot build <バージョン> [保存先]
+			使用法: $0 spigot build [-o [保存先]] <バージョン>
 			__EOF
 		}
 		help()
@@ -1488,19 +1488,26 @@ action_spigot()
 			cat <<- __EOF
 			spigot build はSpigotサーバーのビルドツールをダウンロードし、Minecraftサーバーからビルドします。
 			<バージョン>に指定可能なものは https://www.spigotmc.org/wiki/buildtools/#versions を確認してください。
+
+			--out | -o
+			    出力先を指定します。
+			    指定がなかった場合は規定の名前で書き出されます。
 			__EOF
 		}
 		local args=()
+		local outflag=''
 		local helpflag=''
 		local usageflag=''
 		while (( $# > 0 ))
 		do
 			case $1 in
+				--out)  	shift; outflag="$1"; shift;;
 				--help) 	helpflag='--help'; shift;;
 				--usage)	usageflag='--usage'; shift;;
 				--)	shift; break;;
 				--*)	echo_invalid_flag "$1"; shift;;
 				-*)
+					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
 					shift
 					;;
@@ -1531,7 +1538,7 @@ action_spigot()
 			java -jar BuildTools.jar --rev "$selected_version" || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		)
 		local destination="./"
-		[ ${#args[@]} -ge 2 ] && destination=${args[1]}
+		[ -n "$outflag" ] && destination="$outflag"
 		if [ -e "${work_dir}/spigot-${selected_version}.jar" ]; then
 			mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || { echoerr "[E] jarファイルの移動に失敗しました。"; return $RESPONCE_ERROR; }
 			rm -rf "$work_dir"
