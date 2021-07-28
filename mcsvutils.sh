@@ -1475,7 +1475,7 @@ action_spigot()
 	}
 
 	# Subcommands --------------------------
-	action_spigotbuild()
+	action_spigot_build()
 	{
 		usage()
 		{
