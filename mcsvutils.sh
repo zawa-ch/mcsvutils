@@ -46,13 +46,14 @@ usage()
 help()
 {
 	cat <<- __EOF
-	  profile     サーバーインスタンスのプロファイルを管理する
-	  server      サーバーインスタンスを管理する
-	  image       Minecraftサーバーイメージを管理する
-	  check       このスクリプトの動作要件を満たしているかチェックする
-	  version     現在のバージョンを表示して終了
-	  usage       使用法を表示する
-	  help        このヘルプを表示する
+	  profile  サーバーインスタンスのプロファイルを管理する
+	  server   サーバーインスタンスを管理する
+	  image    Minecraftサーバーイメージを管理する
+	  spigot   CraftBukkit/Spigotサーバーイメージを管理する
+	  check    このスクリプトの動作要件を満たしているかチェックする
+	  version  現在のバージョンを表示して終了
+	  usage    使用法を表示する
+	  help     このヘルプを表示する
 
 	各コマンドの詳細なヘルプは各コマンドに--helpオプションを付けてください。
 
