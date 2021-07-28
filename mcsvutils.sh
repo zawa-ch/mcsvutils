@@ -33,7 +33,7 @@ version()
 	__EOF
 }
 
-SUBCOMMANDS=("version" "usage" "help" "check" "spigotbuild" "profile" "server" "image")
+SUBCOMMANDS=("version" "usage" "help" "check" "spigotbuild" "profile" "server" "image" "spigot")
 
 usage()
 {
@@ -1450,6 +1450,63 @@ action_image()
 	"action_image_$subcommand" "$@"
 }
 
+action_spigot()
+{
+	# Usage/Help ---------------------------
+	local SUBCOMMANDS=("help")
+	usage()
+	{
+		cat <<- __EOF
+		使用法: $0 spigot <サブコマンド>
+		使用可能なサブコマンド: ${SUBCOMMANDS[@]}
+		__EOF
+	}
+	help()
+	{
+		cat <<- __EOF
+		spigot はCraftBukkit/Spigotサーバーの実行ファイルイメージを管理します。
+
+		使用可能なサブコマンドは以下のとおりです。
+
+		  help   このヘルプを表示する
+		__EOF
+	}
+
+	# Subcommands --------------------------
+
+	# Analyze arguments --------------------
+	local subcommand=""
+	if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
+		subcommand="none"
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)	break;;
+			esac
+		done
+	else
+		for item in "${SUBCOMMANDS[@]}"
+		do
+			[ "$item" == "$1" ] && {
+				subcommand="$item"
+				shift
+				break
+			}
+		done
+	fi
+	[ -z "$subcommand" ] && { echoerr "mcsvutils: [E] 無効なサブコマンドを指定しました。"; usage >&2; return $RESPONCE_ERROR; }
+	{ [ "$subcommand" == "help" ] || [ -n "$helpflag" ]; } && { version; echo; usage; echo; help; return; }
+	[ -n "$usageflag" ] && { usage; return; }
+	[ "$subcommand" == "none" ] && { echoerr "mcsvutils: [E] サブコマンドが指定されていません。"; echoerr "$0 spigot help で詳細なヘルプを表示します。"; usage >&2; return $RESPONCE_ERROR; }
+	"action_spigot_$subcommand" "$@"
+}
 
 action_spigotbuild()
 {
