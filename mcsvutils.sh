@@ -1413,10 +1413,7 @@ action_mcdownload()
 	[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
 	local selected_version
 	selected_version="$(echo "$VERSION_MANIFEST" | jq ".versions[] | select( .id == \"${args[0]}\" )")"
-	if [ "$selected_version" = "" ]; then
-		echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"
-		return $RESPONCE_NEGATIVE
-	fi
+	[ -z "$selected_version" ] && { echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"; return $RESPONCE_ERROR; }
 	echo "mcsvutils: ${args[0]} のカタログをダウンロードしています..."
 	selected_version=$(curl "$(echo "$selected_version" | jq -r '.url')")
 	if ! [ $? ]; then
