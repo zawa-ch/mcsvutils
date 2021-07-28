@@ -1196,7 +1196,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "find")
+	local SUBCOMMANDS=("help" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1213,6 +1213,7 @@ action_image()
 
 		  help  このヘルプを表示する
 		  find  Miecraftサーバーイメージのバージョン一覧取得
+		  get   Miecraftサーバーイメージの取得
 		__EOF
 	}
 
@@ -1319,6 +1320,100 @@ action_image()
 				echoerr "mcsvutils: 対象となるバージョンが存在しません"
 				return $RESPONCE_NEGATIVE
 			fi
+		fi
+	}
+	action_image_get()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 image get [-o [保存先]] <バージョン>
+			$0 image get [-o [保存先]] --latest
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image get はMinecraftサーバーのjarをダウンロードします。
+			<バージョン>に指定可能なものは $0 image find で確認可能です。
+
+			--out | -o
+				出力先ファイル名を指定します。
+				指定がなかった場合は規定の名前で書き出されます。
+			--latest
+				最新のリリースビルドをカタログから検出し、選択します。
+				このオプションが指定されている場合、バージョンの指定は無効です。
+			__EOF
+		}
+		local args=()
+		local outflag=''
+		local latestflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--out)  	shift; outflag="$1"; shift;;
+				--latest)	latestflag="--latest"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+		fetch_mcversions || return
+
+		local selected_version
+		if [ -n "$latestflag" ]; then
+			[ ${#args[@]} -ge 1 ] && { echoerr "mcsvutils: [W] --latestフラグが付いているため、バージョンの指定は無効です"; }
+			local latest
+			latest="$(echo "$VERSION_MANIFEST" | jq -r '.latest.release')"
+			echo "mcsvutils: 最新のバージョン $latest が選択されました"
+			selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"$latest\" )")"
+		else
+			[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
+			selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"${args[0]}\" )")"
+		fi
+		[ -z "$selected_version" ] && { echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"; return $RESPONCE_ERROR; }
+		echo "mcsvutils: $(echo "$selected_version" | jq -r '.id') のカタログをダウンロードしています..."
+		selected_version=$(curl "$(echo "$selected_version" | jq -r '.url')") || { echoerr "mcsvutils: [E] カタログのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+		local dl_data
+		local dl_sha1
+		dl_data=$(echo "$selected_version" | jq -r '.downloads.server.url')
+		dl_sha1=$(echo "$selected_version" | jq -r '.downloads.server.sha1')
+		local destination
+		if [ -n "$outflag" ]
+			then destination="$outflag"
+			else destination="$(basename "$dl_data")"
+		fi
+		echo "mcsvutils: データをダウンロードしています..."
+		wget "$dl_data" -O "$destination" || { echoerr "mcsvutils: [E] データのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+		if [ "$(sha1sum "$destination" | awk '{print $1}')" = "$dl_sha1" ]; then
+			echo "mcsvutils: データのダウンロードが完了しました"
+			return $RESPONCE_POSITIVE
+		else
+			echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
+			return $RESPONCE_ERROR
 		fi
 	}
 
