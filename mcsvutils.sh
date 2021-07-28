@@ -1408,7 +1408,7 @@ action_mcdownload()
 	[ -n "$usageflag" ] && { usage; return; }
 
 	check || { oncheckfail; return $RESPONCE_ERROR; }
-	fetch_mcversions
+	fetch_mcversions || return
 	if [ ${#args[@]} -lt 1 ]; then
 		echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"
 		return $RESPONCE_ERROR
