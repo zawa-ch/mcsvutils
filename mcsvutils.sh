@@ -1426,10 +1426,7 @@ action_mcdownload()
 		else destination="$(basename "$dl_data")"
 	fi
 	echo "mcsvutils: データをダウンロードしています..."
-	if ! wget "$dl_data" -O "$destination"; then
-		echoerr "mcsvutils: [E] データのダウンロードに失敗しました"
-		return $RESPONCE_ERROR
-	fi
+	wget "$dl_data" -O "$destination" || { echoerr "mcsvutils: [E] データのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
 	if [ "$(sha1sum "$destination" | awk '{print $1}')" = "$dl_sha1" ]; then
 		echo "mcsvutils: データのダウンロードが完了しました"
 		return $RESPONCE_POSITIVE
