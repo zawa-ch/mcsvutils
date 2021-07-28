@@ -1383,8 +1383,8 @@ action_mcdownload()
 	do
 		case $1 in
 			--out)  	shift; outflag="$1"; shift;;
-			--help)     	helpflag='--help'; shift;;
-			--usage)    	usageflag='--usage'; shift;;
+			--help) 	helpflag='--help'; shift;;
+			--usage)	usageflag='--usage'; shift;;
 			--)	shift; break;;
 			--*)	echo_invalid_flag "$1"; shift;;
 			-*)
