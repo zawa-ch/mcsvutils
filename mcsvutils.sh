@@ -1361,7 +1361,9 @@ action_mcdownload()
 	usage()
 	{
 		cat <<- __EOF
-		使用法: $0 mcdownload [-o [保存先]] <バージョン>
+		使用法:
+		$0 mcdownload [-o [保存先]] <バージョン>
+		$0 mcdownload [-o [保存先]] --latest
 		__EOF
 	}
 	help()
@@ -1373,16 +1375,21 @@ action_mcdownload()
 		--out | -o
 		    出力先ファイル名を指定します。
 		    指定がなかった場合は規定の名前で書き出されます。
+		--latest
+		    最新のリリースビルドをカタログから検出し、選択します。
+		    このオプションが指定されている場合、バージョンの指定は無効です。
 		__EOF
 	}
 	local args=()
 	local outflag=''
+	local latestflag=''
 	local helpflag=''
 	local usageflag=''
 	while (( $# > 0 ))
 	do
 		case $1 in
 			--out)  	shift; outflag="$1"; shift;;
+			--latest)	latestflag="--latest"; shift;;
 			--help) 	helpflag='--help'; shift;;
 			--usage)	usageflag='--usage'; shift;;
 			--)	shift; break;;
@@ -1410,11 +1417,19 @@ action_mcdownload()
 	check || { oncheckfail; return $RESPONCE_ERROR; }
 	fetch_mcversions || return
 
-	[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
 	local selected_version
-	selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"${args[0]}\" )")"
+	if [ -n "$latestflag" ]; then
+		[ ${#args[@]} -ge 1 ] && { echoerr "mcsvutils: [W] --latestフラグが付いているため、バージョンの指定は無効です"; }
+		local latest
+		latest="$(echo "$VERSION_MANIFEST" | jq -r '.latest.release')"
+		echo "mcsvutils: 最新のバージョン $latest が選択されました"
+		selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"$latest\" )")"
+	else
+		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
+		selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"${args[0]}\" )")"
+	fi
 	[ -z "$selected_version" ] && { echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"; return $RESPONCE_ERROR; }
-	echo "mcsvutils: ${args[0]} のカタログをダウンロードしています..."
+	echo "mcsvutils: $(echo "$selected_version" | jq -r '.id') のカタログをダウンロードしています..."
 	selected_version=$(curl "$(echo "$selected_version" | jq -r '.url')") || { echoerr "mcsvutils: [E] カタログのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
 	local dl_data
 	local dl_sha1
