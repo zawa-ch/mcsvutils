@@ -1496,12 +1496,14 @@ action_spigot()
 		}
 		local args=()
 		local outflag=''
+		local latestflag=''
 		local helpflag=''
 		local usageflag=''
 		while (( $# > 0 ))
 		do
 			case $1 in
 				--out)  	shift; outflag="$1"; shift;;
+				--latest)	latestflag="--latest"; shift;;
 				--help) 	helpflag='--help'; shift;;
 				--usage)	usageflag='--usage'; shift;;
 				--)	shift; break;;
@@ -1527,15 +1529,18 @@ action_spigot()
 		[ -n "$usageflag" ] && { usage; return; }
 
 		check || { oncheckfail; return $RESPONCE_ERROR; }
-		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
-		local selected_version="${args[0]}"
+		local invocations=("-jar" "BuildTools.jar")
+		if [ -z "$latestflag" ]; then
+			[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ビルドするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
+			invocations=("${invocations[@]}" "--rev" "${args[0]}")
+		fi
 		local work_dir
 		work_dir="$TEMP/mcsvutils-$(cat /proc/sys/kernel/random/uuid)"
 		(
 			mkdir -p "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"; return $RESPONCE_ERROR; }
 			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
 			wget "$SPIGOT_BUILDTOOLS_LOCATION" || { echoerr "mcsvutils: [E] BuildTools.jar のダウンロードに失敗しました"; return $RESPONCE_ERROR; }
-			java -jar BuildTools.jar --rev "$selected_version" || return
+			java "${invocations[@]}" || return
 			tail BuildTools.log.txt | grep "Success! Everything completed successfully. Copying final .jar files now." >/dev/null 2>&1 || return
 		) || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		local resultjar
