@@ -1535,12 +1535,15 @@ action_spigot()
 			mkdir -p "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"; return $RESPONCE_ERROR; }
 			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
 			wget "$SPIGOT_BUILDTOOLS_LOCATION" || { echoerr "mcsvutils: [E] BuildTools.jar のダウンロードに失敗しました"; return $RESPONCE_ERROR; }
-			java -jar BuildTools.jar --rev "$selected_version" || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
-		)
+			java -jar BuildTools.jar --rev "$selected_version" || return
+			tail BuildTools.log.txt | grep "Success! Everything completed successfully. Copying final .jar files now." >/dev/null 2>&1 || return
+		) || { echoerr "mcsvutils: [E] Spigotサーバーのビルドに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
+		local resultjar
+		resultjar="$(tail "$work_dir/BuildTools.log.txt" | grep -- "- Saved as .*\\.jar" | sed -e 's/ *- Saved as //g')"
 		local destination="./"
 		[ -n "$outflag" ] && destination="$outflag"
-		if [ -e "${work_dir}/spigot-${selected_version}.jar" ]; then
-			mv "${work_dir}/spigot-${selected_version}.jar" "$destination" || { echoerr "[E] jarファイルの移動に失敗しました。"; return $RESPONCE_ERROR; }
+		if [ -e "${work_dir}/$(basename "$resultjar")" ]; then
+			mv "${work_dir}/$(basename "$resultjar")" "$destination" || { echoerr "[E] jarファイルの移動に失敗しました。"; return $RESPONCE_ERROR; }
 			rm -rf "$work_dir"
 			return $RESPONCE_POSITIVE
 		else
