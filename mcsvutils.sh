@@ -838,8 +838,8 @@ action_server()
 			jre="$(profile_get_jre)" || return $RESPONCE_ERROR
 			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
 		fi
-		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-		[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvctrl: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
+		[ -z "$servicename" ] && { echoerr "mcsvutils: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
+		[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvutils: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
 		[ "${#optionflag[@]}" -ne 0 ] && options=("${optionflag[@]}")
 		[ "${#args[@]}" -ne 0 ] && arguments=("${args[@]}")
 		[ -n "$cwdflag" ] && cwd=$cwdflag
