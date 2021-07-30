@@ -848,13 +848,13 @@ action_server()
 		[ -z "$cwd" ] && cwd="./"
 		[ -z "$jre" ] && jre="java"
 		[ -z "$owner" ] && owner="$(whoami)"
-		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
-		echo "mcsvutils: $servicename を起動しています"
 		local invocations=()
 		invocations=("${invocations[@]}" "$jre")
 		[ "${#options[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${options[@]}")
 		invocations=("${invocations[@]}" "-jar" "$executejar")
 		[ "${#arguments[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${arguments[@]}")
+		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
+		echo "mcsvutils: $servicename を起動しています"
 		(
 			cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
 			sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
