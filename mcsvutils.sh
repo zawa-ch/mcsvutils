@@ -760,6 +760,8 @@ action_server()
 			--option
 			    実行時にjavaに渡すオプションを指定します。
 			    このオプションを指定するとプロファイルの設定を上書きします。
+			--attach | -a
+			    インスタンスの開始時にコンソールにアタッチします。
 			__EOF
 		}
 		local args=()
@@ -771,6 +773,7 @@ action_server()
 		local cwdflag=''
 		local javaflag=''
 		local optionflag=()
+		local attachflag=''
 		local helpflag=''
 		local usageflag=''
 		while (( $# > 0 ))
@@ -784,12 +787,14 @@ action_server()
 				--cwd)  	shift; cwdflag="$1"; shift;;
 				--java) 	shift; javaflag="$1"; shift;;
 				--option)	shift; optionflag+=("$1"); shift;;
+				--attach)	attachflag='--attach'; shift;;
 				--help) 	helpflag='--help'; shift;;
 				--usage)	usageflag='--usage'; shift;;
 				--)	shift; break;;
 				--*)	echo_invalid_flag "$1"; shift;;
 				-*)
 					local end_of_analyze=1
+					[[ "$1" =~ a ]] && { attachflag='-a'; }
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; end_of_analyze=0; else profileflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
@@ -854,18 +859,25 @@ action_server()
 		invocations=("${invocations[@]}" "-jar" "$executejar")
 		[ "${#arguments[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${arguments[@]}")
 		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
-		echo "mcsvutils: $servicename を起動しています"
-		(
-			cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
-			sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
-		)
-		sleep .5
-		if sudo -sHu "$owner" screen -list "$servicename" > /dev/null; then
-			echo "mcsvutils: ${servicename} が起動しました"
-			return $RESPONCE_POSITIVE
+		if [ -z "$attachflag" ]; then
+			echo "mcsvutils: $servicename を起動しています"
+			(
+				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
+				sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
+			)
+			sleep .5
+			if sudo -sHu "$owner" screen -list "$servicename" > /dev/null; then
+				echo "mcsvutils: ${servicename} が起動しました"
+				return $RESPONCE_POSITIVE
+			else
+				echo "mcsvutils: [E] ${servicename} を起動できませんでした" >&2
+				return $RESPONCE_ERROR
+			fi
 		else
-			echo "mcsvutils: [E] ${servicename} を起動できませんでした" >&2
-			return $RESPONCE_ERROR
+			(
+				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
+				sudo -sHu "$owner" screen -mS "$servicename" "${invocations[@]}"
+			)
 		fi
 	}
 	action_server_stop()
