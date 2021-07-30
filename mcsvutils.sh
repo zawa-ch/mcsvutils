@@ -789,12 +789,13 @@ action_server()
 				--)	shift; break;;
 				--*)	echo_invalid_flag "$1"; shift;;
 				-*)
-					[[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; else profileflag=''; fi; }
-					[[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; else nameflag=''; fi; }
-					[[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; else versionflag=''; fi; }
-					[[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; else executeflag=''; fi; }
-					[[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; else ownerflag=''; fi; }
+					local end_of_analyze=1
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; end_of_analyze=0; else profileflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; end_of_analyze=0; else versionflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; end_of_analyze=0; else executeflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; end_of_analyze=0; else ownerflag=''; fi; }
 					shift
 					;;
 				*)
