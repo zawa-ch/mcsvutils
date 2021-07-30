@@ -852,11 +852,12 @@ action_server()
 		screen -list $servicename > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; exit $RESPONCE_NEGATIVE; }
 		echo "mcsvutils: $servicename を起動しています"
 		cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; exit $RESPONCE_ERROR; }
-		invocations="$jre"
-		[ "${#options[@]}" -ne 0 ] && invocations="\$invocations ${options[@]}"
-		invocations="\$invocations -jar $executejar"
-		[ "${#arguments[@]}" -ne 0 ] && invocations="\$invocations ${arguments[@]}"
-		screen -h 1024 -dmS "$servicename" \$invocations
+		invocations=()
+		invocations=("\${invocations[@]}" "$jre")
+		[ "${#options[@]}" -ne 0 ] && invocations=("\${invocations[@]}" "${options[@]}")
+		invocations=("\${invocations[@]}" "-jar" "$executejar")
+		[ "${#arguments[@]}" -ne 0 ] && invocations=("\${invocations[@]}" "${arguments[@]}")
+		screen -dmS "$servicename" "\${invocations[@]}"
 		sleep .5
 		if screen -list "$servicename" > /dev/null; then
 			echo "mcsvutils: ${servicename} が起動しました"
