@@ -1530,8 +1530,8 @@ action_spigot()
 				--)	shift; break;;
 				--*)	echo_invalid_flag "$1"; shift;;
 				-*)
-					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					[[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; else outflag=''; fi; }
 					shift
 					;;
 				*)
