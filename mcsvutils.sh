@@ -848,25 +848,25 @@ action_server()
 		[ -z "$cwd" ] && cwd="./"
 		[ -z "$jre" ] && jre="java"
 		[ -z "$owner" ] && owner="$(whoami)"
-		as_user_script "$owner" <<- __EOF
-		screen -list $servicename > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; exit $RESPONCE_NEGATIVE; }
+		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
 		echo "mcsvutils: $servicename を起動しています"
-		cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; exit $RESPONCE_ERROR; }
-		invocations=()
-		invocations=("\${invocations[@]}" "$jre")
-		[ "${#options[@]}" -ne 0 ] && invocations=("\${invocations[@]}" "${options[@]}")
-		invocations=("\${invocations[@]}" "-jar" "$executejar")
-		[ "${#arguments[@]}" -ne 0 ] && invocations=("\${invocations[@]}" "${arguments[@]}")
-		screen -dmS "$servicename" "\${invocations[@]}"
+		local invocations=()
+		invocations=("${invocations[@]}" "$jre")
+		[ "${#options[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${options[@]}")
+		invocations=("${invocations[@]}" "-jar" "$executejar")
+		[ "${#arguments[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${arguments[@]}")
+		(
+			cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
+			sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
+		)
 		sleep .5
-		if screen -list "$servicename" > /dev/null; then
+		if sudo -sHu "$owner" screen -list "$servicename" > /dev/null; then
 			echo "mcsvutils: ${servicename} が起動しました"
-			exit $RESPONCE_POSITIVE
+			return $RESPONCE_POSITIVE
 		else
 			echo "mcsvutils: [E] ${servicename} を起動できませんでした" >&2
-			exit $RESPONCE_ERROR
+			return $RESPONCE_ERROR
 		fi
-		__EOF
 	}
 	action_server_stop()
 	{
