@@ -194,6 +194,11 @@ profile_check_integrity()
 }
 
 repository_get_version() { jq -r ".version | numbers" || return $RESPONCE_ERROR; }
+repository_get_images_item()
+{
+	local item=$1
+	jq -c ".images | map_values(select(.name == $item))"
+}
 
 # Subcommands --------------------------
 action_profile()
