@@ -71,6 +71,7 @@ readonly RESPONCE_POSITIVE=0
 readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=2
+readonly REPO_VERSION=1
 SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)" || {
 	echo "mcsvutils: [E] スクリプトが置かれているディレクトリを検出できませんでした。" >&2
 	exit $RESPONCE_ERROR
@@ -198,6 +199,12 @@ repository_get_images_item()
 {
 	local item=$1
 	jq -c ".images | map_values(select(.name == $item))"
+}
+repository_check_integrity()
+{
+	local version; version="$(repository_get_version)" || return $RESPONCE_NEGATIVE
+	[ "$version" -ne "$REPO_VERSION" ] && return $RESPONCE_NEGATIVE
+	return $RESPONCE_POSITIVE
 }
 
 # Subcommands --------------------------
