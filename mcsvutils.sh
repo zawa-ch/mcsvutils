@@ -193,7 +193,7 @@ profile_check_integrity()
 	return $RESPONCE_POSITIVE
 }
 
-repository_get_version() { jq -r ".version | numbers" "$MCSVUTILS_VERSIONS_LOCATION/index.json" || return $RESPONCE_ERROR; }
+repository_get_version() { jq -r ".version | numbers" || return $RESPONCE_ERROR; }
 
 # Subcommands --------------------------
 action_profile()
