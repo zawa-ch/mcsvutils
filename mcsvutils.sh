@@ -207,6 +207,11 @@ repository_is_exist_image()
 	local item=$1
 	[ "$(jq -r ".images | has(\"$item\")")" == "true" ]
 }
+repository_get_image()
+{
+	local item=$1
+	jq -c ".images.\"$item\""
+}
 repository_check_integrity()
 {
 	local data
