@@ -202,6 +202,11 @@ repository_find_image_keys_fromname()
 	local item=$1
 	jq -c ".images | map_values(select(.name == \"$item\")) | keys"
 }
+repository_is_exist_image()
+{
+	local item=$1
+	[ "$(jq -r ".images | has(\"$item\")")" == "true" ]
+}
 repository_check_integrity()
 {
 	local data
