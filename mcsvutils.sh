@@ -1245,7 +1245,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "info" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "add" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1263,6 +1263,7 @@ action_image()
 		  help  このヘルプを表示する
 		  list  イメージリポジトリ内のイメージ一覧取得
 		  info  イメージリポジトリ内のイメージ情報取得
+		  add   イメージリポジトリ内でイメージ追加
 		  find  Miecraftサーバーイメージのバージョン一覧取得
 		  get   Miecraftサーバーイメージの取得
 		__EOF
@@ -1437,6 +1438,115 @@ action_image()
 			echoerr "mcsvutils: 対象となるバージョンが存在しません"
 			return $RESPONCE_NEGATIVE
 		fi
+	}
+	action_image_add()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image add [オプション] <Minecraftサーバーイメージjar>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image add はローカルリポジトリ内にMinecraftサーバーイメージを追加します。
+
+			  --name | -n
+			    イメージの名前を指定します。
+			  --copy
+			    --copy, --link, --nocopyでサーバーイメージの扱いを変更します。
+			    管理ディレクトリにファイルをコピーします。
+			  --link | l
+			    --copy, --link, --nocopyでサーバーイメージの扱いを変更します。
+			    管理ディレクトリにハードリンクを作成します。
+			  --no-copy
+			    --copy, --link, --nocopyでサーバーイメージの扱いを変更します。
+			    コピーを行わず、指定されたパスを登録します。(非推奨)
+			__EOF
+		}
+		local args=()
+		local nameflag=''
+		local copyflag=''
+		local linkflag=''
+		local nocopyflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--name) 	shift; nameflag="$1"; shift;;
+				--copy) 	copyflag="--copy"; shift;;
+				--link) 	linkflag="--link"; shift;;
+				--no-copy)	nocopyflag="--no-copy"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					local end_of_analyze=1
+					[[ "$1" =~ i ]] && { inputflag='-i'; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					[[ "$1" =~ l ]] && { linkflag='-l'; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ファイルを指定してください"; return $RESPONCE_ERROR; }
+		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
+		{ [ -n "$copyflag" ] && [ -n "$linkflag" ]; } && { echoerr "mcsvutils: [E] --copy と --link は同時に指定できません"; return $RESPONCE_ERROR; }
+		{ [ -n "$linkflag" ] && [ -n "$nocopyflag" ]; } && { echoerr "mcsvutils: [E] --linkflag と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
+		{ [ -n "$nocopyflag" ] && [ -n "$copyflag" ]; } && { echoerr "mcsvutils: [E] --copy と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
+
+		[ -e "${args[0]}" ] || { echoerr "mcsvutils: [E] ${args[0]} が見つかりません"; return $RESPONCE_ERROR; }
+		[ -f "${args[0]}" ] || { echoerr "mcsvutils: [E] ${args[0]} はファイルではありません"; return $RESPONCE_ERROR; }
+
+		local repository
+		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
+
+		local id
+		while :
+		do
+			id="$(cat /proc/sys/kernel/random/uuid)"
+			echo "$repository" | repository_is_exist_image "$id" || break
+		done
+
+		local jar_path
+		if [ -n "$linkflag" ]; then
+			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
+			ln "${args[0]}" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのリンク作成に失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "${args[0]}")"
+		elif [ -n "$nocopyflag" ]; then
+			jar_path="$(cd "$(dirname "${args[0]}")" || return $RESPONCE_ERROR; pwd)/${args[0]}" || { echoerr "mcsvutils: [E] ファイルの取得に失敗しました。"; return $RESPONCE_ERROR; }
+		else
+			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
+			cp -n "${args[0]}" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "${args[0]}")"
+		fi
+
+		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		echo "$repository" | repository_save || return $RESPONCE_ERROR
+		echoerr "mcsvutils: 操作は成功しました"
+		echo "ID: $id"
+		echo "名前: $nameflag"
+		echo "jarファイルのパス: $jar_path"
+		return $RESPONCE_POSITIVE
 	}
 	action_image_find()
 	{
