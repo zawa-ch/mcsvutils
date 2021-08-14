@@ -1269,6 +1269,15 @@ action_image()
 	}
 
 	repository_save() { local result; result="$(jq '.')" && echo "$result" > "$MCSVUTILS_VERSIONS_LOCATION/repository.json"; }
+	repository_new()
+	{
+		local repository='{}'
+		repository="$(echo "$repository" | jq -c --argjson version "$REPO_VERSION" '. |= { $version }')" || return
+		repository="$(echo "$repository" | jq -c '.image |= { }')" || return
+		mkdir -p "$MCSVUTILS_VERSIONS_LOCATION"
+		echo "$repository" | repository_save
+	}
+
 	# Subcommands --------------------------
 	action_image_list()
 	{
