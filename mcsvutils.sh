@@ -1245,7 +1245,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1262,6 +1262,7 @@ action_image()
 
 		  help  このヘルプを表示する
 		  list  イメージリポジトリ内のイメージ一覧取得
+		  info  イメージリポジトリ内のイメージ情報取得
 		  find  Miecraftサーバーイメージのバージョン一覧取得
 		  get   Miecraftサーバーイメージの取得
 		__EOF
@@ -1337,6 +1338,93 @@ action_image()
 			return $RESPONCE_POSITIVE
 		else
 			echoerr "mcsvutils: 対象となるイメージが存在しません"
+			return $RESPONCE_NEGATIVE
+		fi
+	}
+	action_image_info()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image info <イメージ>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image info はローカルリポジトリ内に含まれるMinecraftサーバーイメージの情報を出力します。
+			__EOF
+		}
+		local args=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
+		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
+
+		repository_is_exist || { echoerr "mcsvutils: 対象となるバージョンが存在しません"; return $RESPONCE_NEGATIVE; }
+		local repository
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
+
+		local found=1
+
+		echo "$repository" | repository_is_exist_image "${args[0]}" && {
+			found=0
+			echoerr "mcsvutils: 一致するID"
+			echo "ID: ${args[0]}"
+			local image
+			image="$(echo "$repository" | repository_get_image "${args[0]}")"
+			echo "  名前: $(echo "$image" | repository_image_get_name)"
+			echo "  jarファイルのパス: $(echo "$image" | repository_image_get_path)"
+		}
+
+		local result_image
+		result_image="$(echo "$repository" | repository_find_image_keys_fromname "${args[0]}")"
+		local result_image_count
+		result_image_count="$(echo "$result_image" | jq -r 'length')"
+		[ "$result_image_count" -gt 0 ] && {
+			found=0
+			echoerr "mcsvutils: 一致する名前 (${result_image_count}件の項目)"
+			for item in $(echo "$result_image" | jq -r '.[]')
+			do
+				echo "ID: $item"
+				local image
+				image="$(echo "$repository" | repository_get_image "$item")"
+				echo "  名前: $(echo "$image" | repository_image_get_name)"
+				echo "  jarファイルのパス: $(echo "$image" | repository_image_get_path)"
+			done
+		}
+
+		if [ $found ]; then
+			return $RESPONCE_POSITIVE
+		else
+			echoerr "mcsvutils: 対象となるバージョンが存在しません"
 			return $RESPONCE_NEGATIVE
 		fi
 	}
