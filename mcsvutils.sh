@@ -194,6 +194,7 @@ profile_check_integrity()
 	return $RESPONCE_POSITIVE
 }
 
+repository_is_exist() { [ -e "$MCSVUTILS_VERSIONS_LOCATION/repository.json" ]; }
 repository_get_version() { jq -r ".version | numbers" || return $RESPONCE_ERROR; }
 repository_get_images_item()
 {
