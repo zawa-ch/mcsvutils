@@ -1233,7 +1233,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "find" "get")
+	local SUBCOMMANDS=("help" "list" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1249,12 +1249,85 @@ action_image()
 		使用可能なサブコマンドは以下のとおりです。
 
 		  help  このヘルプを表示する
+		  list  イメージリポジトリ内のイメージ一覧取得
 		  find  Miecraftサーバーイメージのバージョン一覧取得
 		  get   Miecraftサーバーイメージの取得
 		__EOF
 	}
 
 	# Subcommands --------------------------
+	action_image_list()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image list [オプション] [クエリ]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image list はローカルリポジトリ内に含まれるMinecraftサーバーイメージ一覧を出力します。
+
+			クエリに正規表現を用いて結果を絞り込むことができます。
+			__EOF
+		}
+		local args=()
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		repository_is_exist || { echoerr "mcsvutils: 対象となるバージョンが存在しません"; return $RESPONCE_NEGATIVE; }
+		local repository
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
+		local query_text
+		if [ ${#args[@]} -ne 0 ]; then
+			query_text="false"
+			for search_query in "${args[@]}"
+			do
+				query_text="$query_text or test( \"$search_query\" )"
+			done
+		else
+			query_text="true"
+		fi
+		local result
+		mapfile -t result < <(echo "$repository" | jq -r ".images[].name | select( $query_text )")
+		if [ ${#result[@]} -ne 0 ]; then
+			for item in "${result[@]}"
+			do
+				echo "$item"
+			done
+			return $RESPONCE_POSITIVE
+		else
+			echoerr "mcsvutils: 対象となるイメージが存在しません"
+			return $RESPONCE_NEGATIVE
+		fi
+	}
 	action_image_find()
 	{
 		usage()
