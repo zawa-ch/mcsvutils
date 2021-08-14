@@ -197,10 +197,10 @@ profile_check_integrity()
 repository_is_exist() { [ -e "$MCSVUTILS_VERSIONS_LOCATION/repository.json" ]; }
 repository_open() { jq -c '.' "$MCSVUTILS_VERSIONS_LOCATION/repository.json"; }
 repository_get_version() { jq -r ".version | numbers" || return $RESPONCE_ERROR; }
-repository_get_images_item()
+repository_find_image_keys_fromname()
 {
 	local item=$1
-	jq -c ".images | map_values(select(.name == $item))"
+	jq -c ".images | map_values(select(.name == \"$item\")) | keys"
 }
 repository_check_integrity()
 {
