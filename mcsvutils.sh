@@ -1268,6 +1268,7 @@ action_image()
 		__EOF
 	}
 
+	repository_save() { local result; result="$(jq '.')" && echo "$result" > "$MCSVUTILS_VERSIONS_LOCATION/repository.json"; }
 	# Subcommands --------------------------
 	action_image_list()
 	{
