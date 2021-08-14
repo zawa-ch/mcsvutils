@@ -212,6 +212,8 @@ repository_get_image()
 	local item=$1
 	jq -c ".images.\"$item\""
 }
+repository_image_get_name() { jq -r ".name"; }
+repository_image_get_path() { jq -r ".path"; }
 repository_check_integrity()
 {
 	local data
