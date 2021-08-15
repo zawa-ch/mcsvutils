@@ -1485,7 +1485,6 @@ action_image()
 				--*)	echo_invalid_flag "$1"; shift;;
 				-*)
 					local end_of_analyze=1
-					[[ "$1" =~ i ]] && { inputflag='-i'; }
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
 					[[ "$1" =~ l ]] && { linkflag='-l'; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
