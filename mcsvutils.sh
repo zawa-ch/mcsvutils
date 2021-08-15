@@ -1245,7 +1245,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "info" "add" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "add" "remove" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1545,6 +1545,119 @@ action_image()
 		echo "ID: $id"
 		echo "名前: $nameflag"
 		echo "jarファイルのパス: $jar_path"
+		return $RESPONCE_POSITIVE
+	}
+	action_image_remove()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image remove [オプション] <クエリ>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image remove はローカルリポジトリ内からMinecraftサーバーイメージを削除します。
+			削除する対象をクエリで指定します。
+
+			  --id | -i
+			    クエリがID指定であることをマークします。
+			  --name | -n
+			    クエリが名前指定であることをマークします。
+			  --quiet | -q
+			    削除される項目が複数ある場合でも、確認を行わず削除します。
+			  --no-delete
+			    管理ディレクトリからのデータの削除を行わず、リポジトリ上の項目の更新のみを行います。(非推奨)
+			__EOF
+		}
+		local args=()
+		local idflag=''
+		local nameflag=''
+		local quietflag=''
+		local nocopyflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--id)       	idflag="--id"; shift;;
+				--name)     	nameflag="--name"; shift;;
+				--quiet)    	quietflag="--quiet"; shift;;
+				--no-delete)	nodeleteflag="--no-delete"; shift;;
+				--help)     	helpflag='--help'; shift;;
+				--usage)    	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ i ]] && { idflag='-i'; }
+					[[ "$1" =~ n ]] && { nameflag='-n'; }
+					[[ "$1" =~ q ]] && { quietflag='-q'; }
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					[[ "$1" =~ l ]] && { linkflag='-l'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
+		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
+
+		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
+		local repository
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
+
+		local target="[]"
+		local found_id=1
+		{ [ -n "$idflag" ] || { [ -z "$idflag" ] && [ -z "$nameflag" ]; } } && {
+			echo "$repository" | repository_is_exist_image "${args[0]}" && {
+				found_id=0
+				target="[\"${args[0]}\"]"
+			}
+		}
+		local found_name=1
+		{ [ -n "$nameflag" ] || { [ -z "$idflag" ] && [ -z "$nameflag" ]; } } && {
+			local images_fromname
+			images_fromname="$(echo "$repository" | repository_find_image_keys_fromname "${args[0]}")"
+			[ "$(echo "$images_fromname" | jq -r 'length')" -gt 0 ] && {
+				found_name=0
+				target="$(echo "$target" | jq -c --argjson found_image "$images_fromname" '. + $found_image | unique')"
+			}
+		}
+
+		[ $found_id -eq 0 ] && [ $found_name -eq 0 ] && echoerr "mcsvutils: [W] IDと名前の両方に一致する項目があります。どちらか一方の項目を選択するには --id または --name オプションを付けてください。"
+		[ $found_id -eq 0 ] || [ $found_name -eq 0 ] || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
+		[ -z "$quietflag" ] && [ "$(echo "$target" | jq -r 'length')" -gt 1 ]
+		local ask_delete=$?
+		for item in $(echo "$target" | jq -r '.[]')
+		do
+			local image
+			image="$(echo "$repository" | repository_get_image "$item")"
+			[ $ask_delete -eq 0 ] && {
+				local ans
+				echo -n "$item: $(echo "$image" | repository_image_get_name) ($(echo "$image" | repository_image_get_path)) を削除しますか[y/N]: "
+				read -r ans
+				[ "$ans" != "y" ] && continue
+			}
+			[ -z "$nodeleteflag" ] && {
+				[ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${item:?}" ] && { rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${item:?}" || { echoerr "$item のデータを削除できませんでした"; continue; } }
+			}
+			repository="$(echo "$repository" | jq -c "del(.images.\"$item\")")" || { echoerr "mcsvutils: [E] リポジトリの更新に失敗しました"; return $RESPONCE_ERROR; }
+		done
+		echo "$repository" | repository_save || { echoerr "mcsvutils: [E] リポジトリの保存に失敗しました"; return $RESPONCE_ERROR; }
 		return $RESPONCE_POSITIVE
 	}
 	action_image_find()
