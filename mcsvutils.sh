@@ -877,6 +877,22 @@ action_server()
 		fi
 		[ -z "$servicename" ] && { echoerr "mcsvutils: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
 		[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvutils: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
+		[ -n "$mcversion" ] && {
+			local repository
+			repository="$(repository_open)" || { echoerr "mcsvutils: [E] イメージリポジトリを開くことができませんでした"; return $RESPONCE_ERROR; }
+			echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] イメージリポジトリを開くことができませんでした"; return $RESPONCE_ERROR; }
+			local item
+			if echo "$repository" | repository_is_exist_image "$mcversion"; then
+				item="$mcversion"
+			else
+				local found_image
+				found_image="$(echo "$repository" | repository_find_image_keys_fromname "$mcversion")"
+				[ "$(echo "$found_image" | jq -r 'length')" -le 0 ] && { echoerr "mcsvutils: [E] 合致するイメージが見つかりませんでした"; return $RESPONCE_ERROR; }
+				[ "$(echo "$found_image" | jq -r 'length')" -gt 1 ] && { echoerr "mcsvutils: [E] 合致するイメージが複数見つかりました、指定するためにはIDを指定してください"; return $RESPONCE_ERROR; }
+				item="$(echo "$found_image" | jq -r '.[0]')"
+			fi
+			executejar="$(echo "$repository" | repository_get_image "${item:?}" | repository_image_get_path)"
+		}
 		[ "${#optionflag[@]}" -ne 0 ] && options=("${optionflag[@]}")
 		[ "${#args[@]}" -ne 0 ] && arguments=("${args[@]}")
 		[ -n "$cwdflag" ] && cwd=$cwdflag
