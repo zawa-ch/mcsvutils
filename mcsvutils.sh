@@ -1245,7 +1245,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "info" "add" "remove" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "pull" "add" "remove" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1439,6 +1439,132 @@ action_image()
 			echoerr "mcsvutils: 対象となるバージョンが存在しません"
 			return $RESPONCE_NEGATIVE
 		fi
+	}
+	action_image_pull()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法:
+			$0 image pull [オプション] <バージョン>
+			$0 image pull [オプション] --latest
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image pull はMinecraftサーバーイメージをダウンロードし、リポジトリに追加します。
+
+			  --name | -n
+			    リポジトリに登録する際の名前を指定します。
+			  --latest
+			    最新のリリースビルドをカタログから検出し、選択します。
+			    このオプションが指定されている場合、バージョンの指定は無効です。
+			__EOF
+		}
+		local args=()
+		local nameflag=''
+		local latestflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--name) 	shift; nameflag="$1"; shift;;
+				--latest)	latestflag='--latest'; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					local end_of_analyze=1
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		fetch_mcversions || return
+
+		local selected_version
+		if [ -n "$latestflag" ]; then
+			[ ${#args[@]} -ge 1 ] && { echoerr "mcsvutils: [W] --latestフラグが付いているため、バージョンの指定は無効です"; }
+			local latest
+			latest="$(echo "$VERSION_MANIFEST" | jq -r '.latest.release')"
+			echo "mcsvutils: 最新のバージョン $latest が選択されました"
+			selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"$latest\" )")"
+		else
+			[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ダウンロードするMinecraftのバージョンを指定する必要があります"; return $RESPONCE_ERROR; }
+			selected_version="$(echo "$VERSION_MANIFEST" | jq -c ".versions[] | select( .id == \"${args[0]}\" )")"
+		fi
+		[ -z "$selected_version" ] && { echoerr "mcsvutils: 指定されたバージョンは見つかりませんでした"; return $RESPONCE_ERROR; }
+		echo "mcsvutils: $(echo "$selected_version" | jq -r '.id') のカタログをダウンロードしています..."
+		selected_version=$(curl "$(echo "$selected_version" | jq -r '.url')") || { echoerr "mcsvutils: [E] カタログのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+		local dl_data
+		local dl_sha1
+		dl_data=$(echo "$selected_version" | jq -r '.downloads.server.url')
+		dl_sha1=$(echo "$selected_version" | jq -r '.downloads.server.sha1')
+		local destination
+		destination="$(basename "$dl_data")"
+
+		local work_dir
+		work_dir="$TEMP/mcsvutils-$(cat /proc/sys/kernel/random/uuid)"
+		(
+			mkdir -p "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリを作成できませんでした"; return $RESPONCE_ERROR; }
+			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
+			echo "mcsvutils: データをダウンロードしています..."
+			wget "$dl_data" -O "$destination" || { echoerr "mcsvutils: [E] データのダウンロードに失敗しました"; return $RESPONCE_ERROR; }
+			if [ "$(sha1sum "$destination" | awk '{print $1}')" = "$dl_sha1" ]; then
+				echo "mcsvutils: データのダウンロードが完了しました"
+				return $RESPONCE_POSITIVE
+			else
+				echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
+				return $RESPONCE_ERROR
+			fi
+		) || return
+
+		local repository
+		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
+
+		local id
+		while :
+		do
+			id="$(cat /proc/sys/kernel/random/uuid)"
+			echo "$repository" | repository_is_exist_image "$id" || break
+		done
+
+		(
+			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
+			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
+			cp -n "$destination" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		) || return
+		rm -rf "${work_dir:?}"
+
+		local jar_path
+		jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "$destination")"
+		[ -z "$nameflag" ] && nameflag="${args[0]}"
+		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		echo "$repository" | repository_save || return $RESPONCE_ERROR
+		echoerr "mcsvutils: 操作は成功しました"
+		echo "ID: $id"
+		echo "名前: $nameflag"
+		echo "jarファイルのパス: $jar_path"
+		return $RESPONCE_POSITIVE
 	}
 	action_image_add()
 	{
