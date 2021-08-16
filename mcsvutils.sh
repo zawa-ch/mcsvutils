@@ -294,7 +294,7 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-		if [ "${#args[@]}" -ge 1 ]; then profile_open "$profileflag" || return; else profile_open || return; fi
+		if [ ${#args[@]} -gt 0 ]; then profile_open "${args[0]}" || return; else profile_open || return; fi
 		profile_check_integrity || { echoerr "mcsvutils: [E] 指定されたデータは正しいプロファイルデータではありません"; return $RESPONCE_ERROR; }
 		echo "サービス名: $(profile_get_servicename)"
 		[ -n "$(profile_get_owner)" ] && echo "サービス所有者: $(profile_get_owner)"
