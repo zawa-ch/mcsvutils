@@ -185,7 +185,7 @@ profile_get_owner() { { echo "$profile_data" | jq -r ".owner | strings"; } || { 
 profile_check_integrity()
 {
 	local version; version="$(profile_get_version)" || return $RESPONCE_NEGATIVE
-	[ "$version" -ne "$DATA_VERSION" ] && { echoerr "mcsvutils: [E] 対応していないプロファイルのバージョン($version)です"; return $RESPONCE_NEGATIVE; }
+	[ "$version" != "$DATA_VERSION" ] && { echoerr "mcsvutils: [E] 対応していないプロファイルのバージョン($version)です"; return $RESPONCE_NEGATIVE; }
 	local servicename; servicename="$(profile_get_servicename)" || return $RESPONCE_NEGATIVE
 	[ -z "$servicename" ] && { echoerr "mcsvutils: [E] 必要な要素 servicename がありません"; return $RESPONCE_NEGATIVE; }
 	local mcversion; mcversion="$(profile_get_mcversion)" || return $RESPONCE_NEGATIVE
