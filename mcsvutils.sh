@@ -2307,5 +2307,5 @@ fi
 
 if [ -n "$subcommand" ]
 	then "action_$subcommand" "$@"; exit $?
-	else echoerr "mcsvutils: [E] 無効なアクションを指定しました。"; usage >&2; return $RESPONCE_ERROR
+	else echoerr "mcsvutils: [E] 無効なアクションを指定しました。"; usage >&2; exit $RESPONCE_ERROR
 fi
