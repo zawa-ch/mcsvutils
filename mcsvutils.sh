@@ -312,7 +312,7 @@ action_profile()
 		{
 			cat <<- __EOF
 			使用法:
-			$0 profile create --name <名前> --version <バージョン> [オプション]
+			$0 profile create --name <名前> --image <バージョン> [オプション]
 			$0 profile create --name <名前> --execute <jarファイル> [オプション]
 			__EOF
 		}
@@ -330,14 +330,14 @@ action_profile()
 			    指定がなかった場合は標準出力に書き出されます。
 			--name | -n (必須)
 			    インスタンスの名前を指定します。
-			--version | -r
+			--image | -r
 			    サーバーとして実行するMinecraftのバージョンを指定します。
-			    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    --imageオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
 			    また、--executeオプションと同時に使用することはできません。
 			--execute | -e
 			    サーバーとして実行するjarファイルを指定します。
-			    --versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-			    また、--versionオプションと同時に使用することはできません。
+			    --imageオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    また、--imageオプションと同時に使用することはできません。
 			--owner | -u
 			    実行時のユーザーを指定します。
 			--cwd
@@ -358,7 +358,7 @@ action_profile()
 		local inputflag=''
 		local outflag=''
 		local nameflag=''
-		local versionflag=''
+		local imageflag=''
 		local executeflag=''
 		local ownerflag=''
 		local cwdflag=''
@@ -374,7 +374,7 @@ action_profile()
 				--input)	shift; inputflag="$1"; shift;;
 				--out)  	shift; outflag="$1"; shift;;
 				--name) 	shift; nameflag="$1"; shift;;
-				--version)	shift; versionflag="$1"; shift;;
+				--image)	shift; imageflag="$1"; shift;;
 				--execute)	shift; executeflag="$1"; shift;;
 				--owner)	shift; ownerflag="$1"; shift;;
 				--cwd)  	shift; cwdflag="$1"; shift;;
@@ -392,7 +392,7 @@ action_profile()
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; end_of_analyze=0; else profileflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ o ]] && { if [[ "$1" =~ o$ ]]; then shift; outflag="$1"; end_of_analyze=0; else outflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
-					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; end_of_analyze=0; else versionflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; imageflag="$1"; end_of_analyze=0; else imageflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; end_of_analyze=0; else executeflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; end_of_analyze=0; else ownerflag=''; fi; }
 					shift
@@ -418,10 +418,10 @@ action_profile()
 		[ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$nameflag" ] && { echoerr "mcsvutils: [E] --nameは必須です"; return $RESPONCE_ERROR; }
 		result=$(echo "$result" | jq -c --argjson version "$DATA_VERSION" '.version |= $version') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
 		[ -n "$nameflag" ] && { result=$(echo "$result" | jq -c --arg servicename "$nameflag" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$executeflag" ] && [ -z "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeまたは--versionは必須です"; return $RESPONCE_ERROR; }
-		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -n "$executeflag" ] && [ -n "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeと--versionは同時に指定できません"; return $RESPONCE_ERROR; }
+		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$executeflag" ] && [ -z "$imageflag" ]; } && { echoerr "mcsvutils: [E] --executeまたは--imageは必須です"; return $RESPONCE_ERROR; }
+		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -n "$executeflag" ] && [ -n "$imageflag" ]; } && { echoerr "mcsvutils: [E] --executeと--imageは同時に指定できません"; return $RESPONCE_ERROR; }
 		[ -n "$executeflag" ] && { result=$(echo "$result" | jq -c --arg executejar "$executeflag" '.executejar |= $executejar | .imagetag |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-		[ -n "$versionflag" ] && { result=$(echo "$result" | jq -c --arg imagetag "$versionflag" '.imagetag |= $imagetag | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$imageflag" ] && { result=$(echo "$result" | jq -c --arg imagetag "$imageflag" '.imagetag |= $imagetag | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
 		local options="[]"
 		[ ${#optionflag[@]} -ne 0 ] && { for item in "${optionflag[@]}"; do options=$(echo "$options" | jq -c ". + [ \"$item\" ]"); done }
 		result=$(echo "$result" | jq -c --argjson options "$options" '.options |= $options') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
