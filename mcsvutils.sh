@@ -1416,7 +1416,7 @@ action_image()
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
 
-		repository_is_exist || { echoerr "mcsvutils: 対象となるバージョンが存在しません"; return $RESPONCE_NEGATIVE; }
+		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
 		local repository
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
@@ -1453,7 +1453,7 @@ action_image()
 		if [ $found ]; then
 			return $RESPONCE_POSITIVE
 		else
-			echoerr "mcsvutils: 対象となるバージョンが存在しません"
+			echoerr "mcsvutils: 対象となるイメージが存在しません"
 			return $RESPONCE_NEGATIVE
 		fi
 	}
