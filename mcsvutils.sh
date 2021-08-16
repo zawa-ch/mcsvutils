@@ -166,7 +166,7 @@ profile_data=""
 # プロファイルデータの指定がなかった場合、標準入力から取得する
 profile_open()
 {
-	[ $# -le 1 ] && { profile_data="$(jq -c '.')"; return; }
+	[ $# -lt 1 ] && { profile_data="$(jq -c '.')"; return; }
 	local profile_file="$1"
 	[ -e "$profile_file" ] || { echoerr "mcsvutils: [E] 指定されたファイル $profile_file が見つかりません"; return $RESPONCE_ERROR; }
 	profile_data="$(jq -c '.' "$profile_file")"
