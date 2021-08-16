@@ -2286,9 +2286,11 @@ if [[ $1 =~ -.* ]] || [ "$1" = "" ]; then
 		case $1 in
 			--help) 	helpflag='--help'; shift;;
 			--usage)	usageflag='--usage'; shift;;
+			--version)	versionflag='--version'; shift;;
 			--*)	echo_invalid_flag "$1"; shift;;
 			-*)
 				[[ "$1" =~ h ]] && { helpflag='-h'; }
+				[[ "$1" =~ v ]] && { versionflag='-v'; }
 				shift
 				;;
 			*)	break;;
