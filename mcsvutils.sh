@@ -1343,7 +1343,7 @@ action_image()
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
 
-		repository_is_exist || { echoerr "mcsvutils: 対象となるバージョンが存在しません"; return $RESPONCE_NEGATIVE; }
+		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
 		local repository
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
