@@ -28,7 +28,7 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.3.0 2021-07-20
+	version 0.4.0 2021-08-16
 	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
