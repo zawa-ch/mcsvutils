@@ -299,7 +299,7 @@ action_profile()
 		echo "サービス名: $(profile_get_servicename)"
 		[ -n "$(profile_get_owner)" ] && echo "サービス所有者: $(profile_get_owner)"
 		[ -n "$(profile_get_cwd)" ] && echo "作業ディレクトリ: $(profile_get_cwd)"
-		[ -n "$(profile_get_imagetag)" ] && echo "Minecraftバージョン: $(profile_get_imagetag)"
+		[ -n "$(profile_get_imagetag)" ] && echo "呼び出しイメージ: $(profile_get_imagetag)"
 		[ -n "$(profile_get_executejar)" ] && echo "実行jarファイル: $(profile_get_executejar)"
 		[ -n "$(profile_get_jre)" ] && echo "Java環境: $(profile_get_jre)"
 		[ -n "$(profile_get_options)" ] && echo "Java呼び出しオプション: $(profile_get_options)"
