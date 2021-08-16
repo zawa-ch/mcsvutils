@@ -175,7 +175,7 @@ profile_open()
 
 profile_get_version() { { echo "$profile_data" | jq -r ".version | numbers"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_servicename() { { echo "$profile_data" | jq -r ".servicename | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
-profile_get_imagetag() { { echo "$profile_data" | jq -r ".mcversion | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
+profile_get_imagetag() { { echo "$profile_data" | jq -r ".imagetag | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_executejar() { { echo "$profile_data" | jq -r ".executejar | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_options() { { echo "$profile_data" | jq -r ".options[]"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_arguments() { { echo "$profile_data" | jq -r ".arguments[]"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
@@ -188,9 +188,9 @@ profile_check_integrity()
 	[ "$version" != "$DATA_VERSION" ] && { echoerr "mcsvutils: [E] 対応していないプロファイルのバージョン($version)です"; return $RESPONCE_NEGATIVE; }
 	local servicename; servicename="$(profile_get_servicename)" || return $RESPONCE_NEGATIVE
 	[ -z "$servicename" ] && { echoerr "mcsvutils: [E] 必要な要素 servicename がありません"; return $RESPONCE_NEGATIVE; }
-	local mcversion; mcversion="$(profile_get_imagetag)" || return $RESPONCE_NEGATIVE
+	local imagetag; imagetag="$(profile_get_imagetag)" || return $RESPONCE_NEGATIVE
 	local executejar; executejar="$(profile_get_executejar)" || return $RESPONCE_NEGATIVE
-	{ { [ -z "$mcversion" ] && [ -z "$executejar" ]; } || { [ -n "$mcversion" ] && [ -n "$executejar" ]; } } && { echoerr "mcsvutils: [E] mcversion と executejar の要素はどちらかひとつだけが存在する必要があります"; return $RESPONCE_ERROR; }
+	{ { [ -z "$imagetag" ] && [ -z "$executejar" ]; } || { [ -n "$imagetag" ] && [ -n "$executejar" ]; } } && { echoerr "mcsvutils: [E] imagetag と executejar の要素はどちらかひとつだけが存在する必要があります"; return $RESPONCE_ERROR; }
 	return $RESPONCE_POSITIVE
 }
 
@@ -420,8 +420,8 @@ action_profile()
 		[ -n "$nameflag" ] && { result=$(echo "$result" | jq -c --arg servicename "$nameflag" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
 		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -z "$executeflag" ] && [ -z "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeまたは--versionは必須です"; return $RESPONCE_ERROR; }
 		{ [ -z "$profileflag" ] && [ -z "$inputflag" ] && [ -n "$executeflag" ] && [ -n "$versionflag" ]; } && { echoerr "mcsvutils: [E] --executeと--versionは同時に指定できません"; return $RESPONCE_ERROR; }
-		[ -n "$executeflag" ] && { result=$(echo "$result" | jq -c --arg executejar "$executeflag" '.executejar |= $executejar | .mcversion |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-		[ -n "$versionflag" ] && { result=$(echo "$result" | jq -c --arg mcversion "$versionflag" '.mcversion |= $mcversion | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$executeflag" ] && { result=$(echo "$result" | jq -c --arg executejar "$executeflag" '.executejar |= $executejar | .imagetag |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$versionflag" ] && { result=$(echo "$result" | jq -c --arg imagetag "$versionflag" '.imagetag |= $imagetag | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
 		local options="[]"
 		[ ${#optionflag[@]} -ne 0 ] && { for item in "${optionflag[@]}"; do options=$(echo "$options" | jq -c ". + [ \"$item\" ]"); done }
 		result=$(echo "$result" | jq -c --argjson options "$options" '.options |= $options') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
@@ -509,7 +509,7 @@ action_profile()
 		fi
 		local version=''
 		local servicename=''
-		local mcversion=''
+		local imagetag=''
 		local executejar=''
 		local owner=''
 		local cwd=''
@@ -546,10 +546,10 @@ action_profile()
 		result=$(echo "$result" | jq -c --argjson version "$DATA_VERSION" '.version |= $version') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
 		[ -z "$servicename" ] && { echoerr "mcsvutils: [E] サービス名が空です"; return $RESPONCE_ERROR; }
 		result=$(echo "$result" | jq -c --arg servicename "$servicename" '.servicename |= $servicename') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
-		{ [ -z "$mcversion" ] && [ -z "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとmcversionがどちらも空です"; return $RESPONCE_ERROR; }
-		{ [ -n "$mcversion" ] && [ -n "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとmcversionは同時に存在できません"; return $RESPONCE_ERROR; }
-		[ -n "$mcversion" ] && { result=$(echo "$result" | jq -c --arg mcversion "$mcversion" '.mcversion |= $mcversion | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
-		[ -n "$executejar" ] && { result=$(echo "$result" | jq -c --arg executejar "$executejar" '.executejar |= $executejar | .mcversion |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		{ [ -z "$imagetag" ] && [ -z "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとimagetagがどちらも空です"; return $RESPONCE_ERROR; }
+		{ [ -n "$imagetag" ] && [ -n "$executejar" ]; } && { echoerr "mcsvutils: [E] executejarとimagetagは同時に存在できません"; return $RESPONCE_ERROR; }
+		[ -n "$imagetag" ] && { result=$(echo "$result" | jq -c --arg imagetag "$imagetag" '.imagetag |= $imagetag | .executejar |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
+		[ -n "$executejar" ] && { result=$(echo "$result" | jq -c --arg executejar "$executejar" '.executejar |= $executejar | .imagetag |= null' ) || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; } }
 		if [ -n "$owner" ]; then
 			result=$(echo "$result" | jq -c --arg owner "$owner" '.owner |= $owner') || { echoerr "mcsvutils: [E] データの生成に失敗しました"; return $RESPONCE_ERROR; }
 		else
@@ -850,7 +850,7 @@ action_server()
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
 		local servicename=''
-		local mcversion=''
+		local imagetag=''
 		local executejar=''
 		local options=()
 		local arguments=()
@@ -861,13 +861,13 @@ action_server()
 			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前・バージョンおよびjarファイルの指定は無効です"; return $RESPONCE_ERROR; }
 			servicename=$nameflag
 			[ -n "$versionflag" ] && [ -n "$executeflag" ] && { echoerr "mcsvutils: [E] バージョンとjarファイルは同時に指定できません"; return $RESPONCE_ERROR; }
-			[ -n "$versionflag" ] && mcversion=$versionflag
+			[ -n "$versionflag" ] && imagetag=$versionflag
 			[ -n "$executeflag" ] && executejar=$executeflag
 		else
 			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
 			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
 			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-			mcversion="$(profile_get_imagetag)" || return $RESPONCE_ERROR
+			imagetag="$(profile_get_imagetag)" || return $RESPONCE_ERROR
 			executejar="$(profile_get_executejar)" || return $RESPONCE_ERROR
 			for item in $(profile_get_options); do options+=("$item"); done
 			for item in $(profile_get_arguments); do arguments+=("$item"); done
@@ -876,17 +876,17 @@ action_server()
 			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
 		fi
 		[ -z "$servicename" ] && { echoerr "mcsvutils: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
-		[ -z "$mcversion" ] && [ -z "$executejar" ] && { echoerr "mcsvutils: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
-		[ -n "$mcversion" ] && {
+		[ -z "$imagetag" ] && [ -z "$executejar" ] && { echoerr "mcsvutils: [E] 実行するjarファイルが指定されていません"; return $RESPONCE_ERROR; }
+		[ -n "$imagetag" ] && {
 			local repository
 			repository="$(repository_open)" || { echoerr "mcsvutils: [E] イメージリポジトリを開くことができませんでした"; return $RESPONCE_ERROR; }
 			echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] イメージリポジトリを開くことができませんでした"; return $RESPONCE_ERROR; }
 			local item
-			if echo "$repository" | repository_is_exist_image "$mcversion"; then
-				item="$mcversion"
+			if echo "$repository" | repository_is_exist_image "$imagetag"; then
+				item="$imagetag"
 			else
 				local found_image
-				found_image="$(echo "$repository" | repository_find_image_keys_fromname "$mcversion")"
+				found_image="$(echo "$repository" | repository_find_image_keys_fromname "$imagetag")"
 				[ "$(echo "$found_image" | jq -r 'length')" -le 0 ] && { echoerr "mcsvutils: [E] 合致するイメージが見つかりませんでした"; return $RESPONCE_ERROR; }
 				[ "$(echo "$found_image" | jq -r 'length')" -gt 1 ] && { echoerr "mcsvutils: [E] 合致するイメージが複数見つかりました、指定するためにはIDを指定してください"; return $RESPONCE_ERROR; }
 				item="$(echo "$found_image" | jq -r '.[0]')"
