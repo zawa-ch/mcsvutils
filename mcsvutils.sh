@@ -86,7 +86,7 @@ readonly SCRIPT_LOCATION
 [ -z "$TEMP" ] && readonly TEMP="/tmp"
 # Minecraftバージョン管理ディレクトリ設定
 # Minecraftバージョンの管理を行うためのディレクトリを設定します。
-[ -z "$MCSVUTILS_VERSIONS_LOCATION" ] && readonly MCSVUTILS_VERSIONS_LOCATION="$SCRIPT_LOCATION/versions"
+[ -z "$MCSVUTILS_IMAGEREPOSITORY_LOCATION" ] && readonly MCSVUTILS_IMAGEREPOSITORY_LOCATION="$SCRIPT_LOCATION/versions"
 ## -------------------------------------
 
 echo_invalid_flag()
@@ -194,8 +194,8 @@ profile_check_integrity()
 	return $RESPONCE_POSITIVE
 }
 
-repository_is_exist() { [ -e "$MCSVUTILS_VERSIONS_LOCATION/repository.json" ]; }
-repository_open() { jq -c '.' "$MCSVUTILS_VERSIONS_LOCATION/repository.json"; }
+repository_is_exist() { [ -e "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json" ]; }
+repository_open() { jq -c '.' "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json"; }
 repository_get_version() { jq -r ".version | numbers" || return $RESPONCE_ERROR; }
 repository_find_image_keys_fromname()
 {
@@ -1288,13 +1288,13 @@ action_image()
 		__EOF
 	}
 
-	repository_save() { local result; result="$(jq '.')" && echo "$result" > "$MCSVUTILS_VERSIONS_LOCATION/repository.json"; }
+	repository_save() { local result; result="$(jq '.')" && echo "$result" > "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json"; }
 	repository_new()
 	{
 		local repository='{}'
 		repository="$(echo "$repository" | jq -c --argjson version "$REPO_VERSION" '. |= { $version }')" || return
 		repository="$(echo "$repository" | jq -c '.image |= { }')" || return
-		mkdir -p "$MCSVUTILS_VERSIONS_LOCATION"
+		mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION"
 		echo "$repository" | repository_save
 	}
 
@@ -1568,15 +1568,15 @@ action_image()
 
 		(
 			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
-			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
-			cp -n "$destination" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			cp -n "$destination" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 		) || return
 		rm -rf "${work_dir:?}"
 
 		local jar_path
-		jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "$destination")"
+		jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "$destination")"
 		[ -z "$nameflag" ] && nameflag="${args[0]}"
-		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 		echo "$repository" | repository_save || return $RESPONCE_ERROR
 		echoerr "mcsvutils: 操作は成功しました"
 		echo "ID: $id"
@@ -1673,18 +1673,18 @@ action_image()
 
 		local jar_path
 		if [ -n "$linkflag" ]; then
-			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
-			ln "${args[0]}" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのリンク作成に失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
-			jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "${args[0]}")"
+			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			ln "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのリンク作成に失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		elif [ -n "$nocopyflag" ]; then
 			jar_path="$(cd "$(dirname "${args[0]}")" || return $RESPONCE_ERROR; pwd)/${args[0]}" || { echoerr "mcsvutils: [E] ファイルの取得に失敗しました。"; return $RESPONCE_ERROR; }
 		else
-			mkdir -p "$MCSVUTILS_VERSIONS_LOCATION/$id"
-			cp -n "${args[0]}" "$MCSVUTILS_VERSIONS_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
-			jar_path="$MCSVUTILS_VERSIONS_LOCATION/$id/$(basename "${args[0]}")"
+			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			cp -n "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		fi
 
-		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$nameflag\", \"path\": \"$jar_path\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 		echo "$repository" | repository_save || return $RESPONCE_ERROR
 		echoerr "mcsvutils: 操作は成功しました"
 		echo "ID: $id"
@@ -1797,7 +1797,7 @@ action_image()
 				[ "$ans" != "y" ] && continue
 			}
 			[ -z "$nodeleteflag" ] && {
-				[ -e "${MCSVUTILS_VERSIONS_LOCATION:?}/${item:?}" ] && { rm -rf "${MCSVUTILS_VERSIONS_LOCATION:?}/${item:?}" || { echoerr "$item のデータを削除できませんでした"; continue; } }
+				[ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${item:?}" ] && { rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${item:?}" || { echoerr "$item のデータを削除できませんでした"; continue; } }
 			}
 			repository="$(echo "$repository" | jq -c "del(.images.\"$item\")")" || { echoerr "mcsvutils: [E] リポジトリの更新に失敗しました"; return $RESPONCE_ERROR; }
 		done
@@ -1881,10 +1881,10 @@ action_image()
 		[ -z "$nodeleteflag" ] &&
 		{
 			echoerr "mcsvutils: 管理ディレクトリ内の参照されないファイルを削除しています"
-			for item in "${MCSVUTILS_VERSIONS_LOCATION:?}"/*/
+			for item in "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}"/*/
 			do
 				[ -e "$item" ] || break
-				local id=${item#"${MCSVUTILS_VERSIONS_LOCATION:?}/"}
+				local id=${item#"${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/"}
 				id=${id%/}
 				echo "$repository" | repository_is_exist_image "$id" || {
 					rm -rf "${item:?}"
