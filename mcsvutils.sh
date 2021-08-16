@@ -769,15 +769,15 @@ action_server()
 			    インスタンスの名前を指定します。
 			    プロファイルを指定しない場合のみ必須です。
 			    プロファイルを指定している場合はこのオプションを指定することはできません。
-			--version | -r
+			--image | -r
 			    サーバーとして実行するMinecraftのバージョンを指定します。
-			    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    プロファイルを指定しない場合、--imageオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
 			    --executeオプションと同時に使用することはできません。
 			    また、プロファイルを指定している場合はこのオプションを指定することはできません。
 			--execute | -e
 			    サーバーとして実行するjarファイルを指定します。
-			    プロファイルを指定しない場合、--versionオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
-			    --versionオプションと同時に使用することはできません。
+			    プロファイルを指定しない場合、--imageオプションまたは--executeオプションのどちらかを必ずひとつ指定する必要があります。
+			    --imageオプションと同時に使用することはできません。
 			    また、プロファイルを指定している場合はこのオプションを指定することはできません。
 			--owner | -u
 			    実行時のユーザーを指定します。
@@ -799,7 +799,7 @@ action_server()
 		local args=()
 		local profileflag=''
 		local nameflag=''
-		local versionflag=''
+		local imageflag=''
 		local executeflag=''
 		local ownerflag=''
 		local cwdflag=''
@@ -813,7 +813,7 @@ action_server()
 			case $1 in
 				--profile) 	shift; profileflag="$1"; shift;;
 				--name) 	shift; nameflag="$1"; shift;;
-				--version)	shift; versionflag="$1"; shift;;
+				--image)	shift; imageflag="$1"; shift;;
 				--execute)	shift; executeflag="$1"; shift;;
 				--owner)	shift; ownerflag="$1"; shift;;
 				--cwd)  	shift; cwdflag="$1"; shift;;
@@ -830,7 +830,7 @@ action_server()
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ p ]] && { if [[ "$1" =~ p$ ]]; then shift; profileflag="$1"; end_of_analyze=0; else profileflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ n ]] && { if [[ "$1" =~ n$ ]]; then shift; nameflag="$1"; end_of_analyze=0; else nameflag=''; fi; }
-					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; versionflag="$1"; end_of_analyze=0; else versionflag=''; fi; }
+					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ r ]] && { if [[ "$1" =~ r$ ]]; then shift; imageflag="$1"; end_of_analyze=0; else imageflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ e ]] && { if [[ "$1" =~ e$ ]]; then shift; executeflag="$1"; end_of_analyze=0; else executeflag=''; fi; }
 					[ "$end_of_analyze" -ne 0 ] && [[ "$1" =~ u ]] && { if [[ "$1" =~ u$ ]]; then shift; ownerflag="$1"; end_of_analyze=0; else ownerflag=''; fi; }
 					shift
@@ -857,11 +857,11 @@ action_server()
 		local cwd=''
 		local jre=''
 		local owner=''
-		if [ -n "$nameflag" ] || [ -n "$versionflag" ] || [ -n "$executeflag" ]; then
+		if [ -n "$nameflag" ] || [ -n "$imageflag" ] || [ -n "$executeflag" ]; then
 			[ -n "$profileflag" ] && { echoerr "mcsvutils: [E] プロファイルを指定した場合、名前・バージョンおよびjarファイルの指定は無効です"; return $RESPONCE_ERROR; }
 			servicename=$nameflag
-			[ -n "$versionflag" ] && [ -n "$executeflag" ] && { echoerr "mcsvutils: [E] バージョンとjarファイルは同時に指定できません"; return $RESPONCE_ERROR; }
-			[ -n "$versionflag" ] && imagetag=$versionflag
+			[ -n "$imageflag" ] && [ -n "$executeflag" ] && { echoerr "mcsvutils: [E] バージョンとjarファイルは同時に指定できません"; return $RESPONCE_ERROR; }
+			[ -n "$imageflag" ] && imagetag=$imageflag
 			[ -n "$executeflag" ] && executejar=$executeflag
 		else
 			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
