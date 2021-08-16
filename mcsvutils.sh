@@ -1282,6 +1282,7 @@ action_image()
 		  pull    Minecraftサーバーイメージをイメージリポジトリに追加
 		  add     イメージリポジトリにイメージ追加
 		  remove  イメージリポジトリ内のイメージ削除
+		  update  イメージリポジトリの更新
 		  find    Miecraftサーバーイメージのバージョン一覧取得
 		  get     Miecraftサーバーイメージの取得
 		__EOF
