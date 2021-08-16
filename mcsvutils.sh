@@ -175,7 +175,7 @@ profile_open()
 
 profile_get_version() { { echo "$profile_data" | jq -r ".version | numbers"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_servicename() { { echo "$profile_data" | jq -r ".servicename | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
-profile_get_mcversion() { { echo "$profile_data" | jq -r ".mcversion | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
+profile_get_imagetag() { { echo "$profile_data" | jq -r ".mcversion | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_executejar() { { echo "$profile_data" | jq -r ".executejar | strings"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_options() { { echo "$profile_data" | jq -r ".options[]"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
 profile_get_arguments() { { echo "$profile_data" | jq -r ".arguments[]"; } || { echoerr "mcsvutils: [E] プロファイルのパース中に問題が発生しました"; return $RESPONCE_ERROR; } }
@@ -188,7 +188,7 @@ profile_check_integrity()
 	[ "$version" != "$DATA_VERSION" ] && { echoerr "mcsvutils: [E] 対応していないプロファイルのバージョン($version)です"; return $RESPONCE_NEGATIVE; }
 	local servicename; servicename="$(profile_get_servicename)" || return $RESPONCE_NEGATIVE
 	[ -z "$servicename" ] && { echoerr "mcsvutils: [E] 必要な要素 servicename がありません"; return $RESPONCE_NEGATIVE; }
-	local mcversion; mcversion="$(profile_get_mcversion)" || return $RESPONCE_NEGATIVE
+	local mcversion; mcversion="$(profile_get_imagetag)" || return $RESPONCE_NEGATIVE
 	local executejar; executejar="$(profile_get_executejar)" || return $RESPONCE_NEGATIVE
 	{ { [ -z "$mcversion" ] && [ -z "$executejar" ]; } || { [ -n "$mcversion" ] && [ -n "$executejar" ]; } } && { echoerr "mcsvutils: [E] mcversion と executejar の要素はどちらかひとつだけが存在する必要があります"; return $RESPONCE_ERROR; }
 	return $RESPONCE_POSITIVE
@@ -299,7 +299,7 @@ action_profile()
 		echo "サービス名: $(profile_get_servicename)"
 		[ -n "$(profile_get_owner)" ] && echo "サービス所有者: $(profile_get_owner)"
 		[ -n "$(profile_get_cwd)" ] && echo "作業ディレクトリ: $(profile_get_cwd)"
-		[ -n "$(profile_get_mcversion)" ] && echo "Minecraftバージョン: $(profile_get_mcversion)"
+		[ -n "$(profile_get_imagetag)" ] && echo "Minecraftバージョン: $(profile_get_imagetag)"
 		[ -n "$(profile_get_executejar)" ] && echo "実行jarファイル: $(profile_get_executejar)"
 		[ -n "$(profile_get_jre)" ] && echo "Java環境: $(profile_get_jre)"
 		[ -n "$(profile_get_options)" ] && echo "Java呼び出しオプション: $(profile_get_options)"
@@ -867,7 +867,7 @@ action_server()
 			if [ -n "$profileflag" ]; then profile_open "$profileflag" || return; else profile_open || return; fi
 			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
 			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
-			mcversion="$(profile_get_mcversion)" || return $RESPONCE_ERROR
+			mcversion="$(profile_get_imagetag)" || return $RESPONCE_ERROR
 			executejar="$(profile_get_executejar)" || return $RESPONCE_ERROR
 			for item in $(profile_get_options); do options+=("$item"); done
 			for item in $(profile_get_arguments); do arguments+=("$item"); done
