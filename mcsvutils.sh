@@ -1261,7 +1261,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "info" "pull" "add" "remove" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "pull" "add" "remove" "update" "find" "get")
 	usage()
 	{
 		cat <<- __EOF
@@ -1802,6 +1802,95 @@ action_image()
 		done
 		echo "$repository" | repository_save || { echoerr "mcsvutils: [E] リポジトリの保存に失敗しました"; return $RESPONCE_ERROR; }
 		return $RESPONCE_POSITIVE
+	}
+	action_image_update()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image update [オプション]
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image update はローカルリポジトリのデータを更新します。
+
+			  --no-delete
+			    管理ディレクトリからのデータの削除を行わず、リポジトリ上の項目の更新のみを行います。(非推奨)
+			__EOF
+		}
+		local args=()
+		local nocopyflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--no-delete)	nodeleteflag="--no-delete"; shift;;
+				--help)     	helpflag='--help'; shift;;
+				--usage)    	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+
+		local repository
+		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository="$(repository_open)" || { echoerr "mcsvutils: [E] イメージリポジトリのデータは有効なJSONではありません"; return $RESPONCE_ERROR; }
+		local version
+		version="$(echo "$repository" | repository_get_version)" || { echoerr "mcsvutils: [E] イメージリポジトリのバージョンを読み取れませんでした"; return $RESPONCE_ERROR; }
+		case "$version" in
+			"$REPO_VERSION") :;;
+			*) echoerr "mcsvutils: [E] サポートされないイメージリポジトリのバージョン($version)です"; return $RESPONCE_ERROR;;
+		esac
+
+		echoerr "mcsvutils: 存在しないイメージを指定しているエントリを削除しています"
+		local image_list
+		mapfile -t image_list < <(echo "$repository" | jq -r '.images | keys | .[]')
+		for item in "${image_list[@]}"
+		do
+			local path
+			path="$(echo "$repository" | repository_get_image "$item" | repository_image_get_path)"
+			[ -e "$path" ] || {
+				local name
+				name="$(echo "$repository" | repository_get_image "$item" | repository_image_get_name)"
+				repository="$(echo "$repository" | jq -c "del(.images.\"$item\")")"
+				echo "$item: $name ($path) をリポジトリから削除しました"
+			}
+		done
+		echo "$repository" | repository_save
+
+		[ -z "$nodeleteflag" ] &&
+		{
+			echoerr "mcsvutils: 管理ディレクトリ内の参照されないファイルを削除しています"
+			for item in "${MCSVUTILS_VERSIONS_LOCATION:?}"/*/
+			do
+				[ -e "$item" ] || break
+				local id=${item#"${MCSVUTILS_VERSIONS_LOCATION:?}/"}
+				id=${id%/}
+				echo "$repository" | repository_is_exist_image "$id" || {
+					rm -rf "${item:?}"
+					echo "$item を削除しました"
+				}
+			done
+		}
 	}
 	action_image_find()
 	{
