@@ -1738,7 +1738,6 @@ action_image()
 					[[ "$1" =~ n ]] && { nameflag='-n'; }
 					[[ "$1" =~ q ]] && { quietflag='-q'; }
 					[[ "$1" =~ h ]] && { helpflag='-h'; }
-					[[ "$1" =~ l ]] && { linkflag='-l'; }
 					shift
 					;;
 				*)
