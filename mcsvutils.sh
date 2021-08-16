@@ -218,8 +218,8 @@ repository_check_integrity()
 {
 	local data
 	data="$(jq -c '.')" || { echoerr "mcsvutils: [E] イメージリポジトリのデータは有効なJSONではありません"; return $RESPONCE_NEGATIVE; }
-	local version; version="$(echo "$data" | repository_get_version)" || { echoerr "mcsvutils: [E] イメージリポジトリのバージョンの互換性がありません"; return $RESPONCE_NEGATIVE; }
-	[ "$version" -ne "$REPO_VERSION" ] && return $RESPONCE_NEGATIVE
+	local version; version="$(echo "$data" | repository_get_version)" || { echoerr "mcsvutils: [E] イメージリポジトリのバージョンを読み取れませんでした"; return $RESPONCE_NEGATIVE; }
+	[ "$version" -ne "$REPO_VERSION" ] && { echoerr "mcsvutils: [E] イメージリポジトリのバージョンの互換性がありません"; return $RESPONCE_NEGATIVE; }
 	return $RESPONCE_POSITIVE
 }
 
