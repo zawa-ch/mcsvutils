@@ -72,7 +72,7 @@ readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=2
 readonly REPO_VERSION=1
-SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)" || {
+SCRIPT_LOCATION="$(dirname "$(readlink -f "$0")")" || {
 	echo "mcsvutils: [E] スクリプトが置かれているディレクトリを検出できませんでした。" >&2
 	exit $RESPONCE_ERROR
 }
@@ -118,11 +118,10 @@ as_user()
 {
 	local user="$1"
 	shift
-	local command=("$@")
 	if [ "$(whoami)" = "$user" ]; then
-		bash -c "${command[@]}"
+		bash -c -- "$*"
 	else
-		sudo -u "$user" -sH "${command[@]}"
+		sudo -sHu "$user" "$@"
 	fi
 }
 
@@ -144,7 +143,12 @@ check()
 {
 	check_installed()
 	{
-		bash -c "$1 --version" > /dev/null
+		local result_out
+		result_out="$(bash -c "$1 --version" 2>&1 >/dev/null)" || bash -c "$1 --help" >/dev/null 2>/dev/null || {
+			local result=$?
+			echo "$result_out" >&2
+			return $result
+		}
 	}
 	local RESULT=0
 	check_installed sudo || RESULT=$RESPONCE_NEGATIVE
@@ -294,6 +298,8 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		if [ ${#args[@]} -gt 0 ]; then profile_open "${args[0]}" || return; else profile_open || return; fi
 		profile_check_integrity || { echoerr "mcsvutils: [E] 指定されたデータは正しいプロファイルデータではありません"; return $RESPONCE_ERROR; }
 		echo "サービス名: $(profile_get_servicename)"
@@ -411,6 +417,8 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local result="{}"
 		[ -n "$profileflag" ] && [ -n "$inputflag" ] && { echoerr "mcsvutils: [E] --profileと--inputは同時に指定できません"; return $RESPONCE_ERROR; }
 		[ -n "$profileflag" ] && { { profile_open "$profileflag" && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
@@ -502,6 +510,7 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		if [ "${#args[@]}" -ge 1 ]
 			then { profile_open "${args[0]}" || return $RESPONCE_ERROR; }
@@ -720,6 +729,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -849,6 +860,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local imagetag=''
 		local executejar=''
@@ -906,15 +919,15 @@ action_server()
 		[ "${#options[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${options[@]}")
 		invocations=("${invocations[@]}" "-jar" "$executejar")
 		[ "${#arguments[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${arguments[@]}")
-		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
+		as_user "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
 		if [ -z "$attachflag" ]; then
 			echo "mcsvutils: $servicename を起動しています"
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
-				sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
-			)
+				as_user "$owner" screen -dmS "$servicename" "${invocations[@]}"
+			) || return $RESPONCE_ERROR
 			sleep .5
-			if sudo -sHu "$owner" screen -list "$servicename" > /dev/null; then
+			if as_user "$owner" screen -list "$servicename" > /dev/null; then
 				echo "mcsvutils: ${servicename} が起動しました"
 				return $RESPONCE_POSITIVE
 			else
@@ -924,8 +937,9 @@ action_server()
 		else
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
-				sudo -sHu "$owner" screen -mS "$servicename" "${invocations[@]}"
-			)
+				as_user "$owner" screen -mS "$servicename" "${invocations[@]}"
+			) || return $RESPONCE_ERROR
+			return
 		fi
 	}
 	action_server_stop()
@@ -996,6 +1010,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -1101,6 +1117,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -1191,6 +1209,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local cwd=''
 		local owner=''
@@ -1202,6 +1222,7 @@ action_server()
 			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
 			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
 			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+			cwd="$(profile_get_cwd)"
 		fi
 		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
 		[ -n "$cwdflag" ] && cwd=$cwdflag
@@ -1211,16 +1232,18 @@ action_server()
 		send_command="${args[*]}"
 		as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
 		local pre_log_length
-		if [ "$cwd" != "" ]; then
+		[ -e "$cwd" ] && {
 			pre_log_length=$(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}')
-		fi
+		}
 		echo "mcsvutils: ${servicename} にコマンドを送信しています..."
 		echo "> $send_command"
 		dispatch_mccommand "$owner" "$servicename" "$send_command"
 		echo "mcsvutils: コマンドを送信しました"
-		sleep .1
-		echo "レスポンス:"
-		as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
+		[ -e "$cwd" ] && {
+			sleep .1
+			echo "レスポンス:"
+			as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
+		}
 		return $RESPONCE_POSITIVE
 	}
 
@@ -1295,8 +1318,11 @@ action_image()
 		repository="$(echo "$repository" | jq -c --argjson version "$REPO_VERSION" '. |= { $version }')" || return
 		repository="$(echo "$repository" | jq -c '.image |= { }')" || return
 		mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION"
+		chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION" || return
 		echo "$repository" | repository_save
+		chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json" || return
 	}
+	repository_is_writable() { touch -c "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json"; }
 
 	# Subcommands --------------------------
 	action_image_list()
@@ -1343,6 +1369,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
 		local repository
@@ -1413,6 +1440,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
@@ -1514,6 +1542,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		fetch_mcversions || return
 
@@ -1556,6 +1585,7 @@ action_image()
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
 
@@ -1569,7 +1599,9 @@ action_image()
 		(
 			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
-			cp -n "$destination" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
+			cp "$destination" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "$destination")" || return
 		) || return
 		rm -rf "${work_dir:?}"
 
@@ -1649,6 +1681,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ファイルを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
@@ -1661,6 +1694,7 @@ action_image()
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
 
@@ -1674,13 +1708,16 @@ action_image()
 		local jar_path
 		if [ -n "$linkflag" ]; then
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 			ln "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのリンク作成に失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		elif [ -n "$nocopyflag" ]; then
 			jar_path="$(cd "$(dirname "${args[0]}")" || return $RESPONCE_ERROR; pwd)/${args[0]}" || { echoerr "mcsvutils: [E] ファイルの取得に失敗しました。"; return $RESPONCE_ERROR; }
 		else
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
-			cp -n "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
+			cp "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")" || return
 			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		fi
 
@@ -1755,11 +1792,13 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
 
 		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
+		repository_is_writable || return $RESPONCE_ERROR
 		local repository
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
@@ -1851,9 +1890,11 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)" || { echoerr "mcsvutils: [E] イメージリポジトリのデータは有効なJSONではありません"; return $RESPONCE_ERROR; }
 		local version
 		version="$(echo "$repository" | repository_get_version)" || { echoerr "mcsvutils: [E] イメージリポジトリのバージョンを読み取れませんでした"; return $RESPONCE_ERROR; }
@@ -1958,8 +1999,8 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		fetch_mcversions || return $?
 		if [ -n "$latestflag" ]; then
 			if [ -z "$snapshotflag" ]; then
@@ -2054,8 +2095,8 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		fetch_mcversions || return
 
 		local selected_version
@@ -2204,8 +2245,8 @@ action_spigot()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local invocations=()
 		if [ -n "$javaflag" ]
 			then invocations=("$javaflag")
