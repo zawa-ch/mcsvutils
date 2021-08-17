@@ -72,7 +72,7 @@ readonly RESPONCE_NEGATIVE=1
 readonly RESPONCE_ERROR=2
 readonly DATA_VERSION=2
 readonly REPO_VERSION=1
-SCRIPT_LOCATION="$(cd "$(dirname "$0")" && pwd)" || {
+SCRIPT_LOCATION="$(dirname "$(readlink -f "$0")")" || {
 	echo "mcsvutils: [E] スクリプトが置かれているディレクトリを検出できませんでした。" >&2
 	exit $RESPONCE_ERROR
 }
