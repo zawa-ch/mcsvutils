@@ -916,7 +916,7 @@ action_server()
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
 				as_user "$owner" screen -dmS "$servicename" "${invocations[@]}"
-			)
+			) || return $RESPONCE_ERROR
 			sleep .5
 			if as_user "$owner" screen -list "$servicename" > /dev/null; then
 				echo "mcsvutils: ${servicename} が起動しました"
@@ -929,7 +929,8 @@ action_server()
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
 				as_user "$owner" screen -mS "$servicename" "${invocations[@]}"
-			)
+			) || return $RESPONCE_ERROR
+			return
 		fi
 	}
 	action_server_stop()
