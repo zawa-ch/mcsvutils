@@ -143,7 +143,12 @@ check()
 {
 	check_installed()
 	{
-		bash -c "$1 --version" > /dev/null
+		local result_out
+		result_out="$(bash -c "$1 --version" 2>&1 >/dev/null)" || bash -c "$1 --help" >/dev/null 2>/dev/null || {
+			local result=$?
+			echo "$result_out" >&2
+			return $result
+		}
 	}
 	local RESULT=0
 	check_installed sudo || RESULT=$RESPONCE_NEGATIVE
