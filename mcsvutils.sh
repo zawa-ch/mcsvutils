@@ -118,11 +118,10 @@ as_user()
 {
 	local user="$1"
 	shift
-	local command=("$@")
 	if [ "$(whoami)" = "$user" ]; then
-		bash -c "${command[@]}"
+		bash -c -- "$*"
 	else
-		sudo -u "$user" -sH "${command[@]}"
+		sudo -sHu "$user" "$@"
 	fi
 }
 
