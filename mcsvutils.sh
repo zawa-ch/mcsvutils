@@ -1207,6 +1207,7 @@ action_server()
 			profile_check_integrity || { echoerr "mcsvutils: [E] プロファイルのロードに失敗したため、中止します"; return $RESPONCE_ERROR; }
 			servicename="$(profile_get_servicename)" || return $RESPONCE_ERROR
 			owner="$(profile_get_owner)" || return $RESPONCE_ERROR
+			cwd="$(profile_get_cwd)"
 		fi
 		[ -z "$servicename" ] && { echoerr "mcsvctrl: [E] インスタンスの名前が指定されていません"; return $RESPONCE_ERROR; }
 		[ -n "$cwdflag" ] && cwd=$cwdflag
@@ -1216,16 +1217,18 @@ action_server()
 		send_command="${args[*]}"
 		as_user "$owner" "screen -list \"$servicename\"" > /dev/null || { echo "mcsvutils: ${servicename} は起動していません"; return $RESPONCE_NEGATIVE; }
 		local pre_log_length
-		if [ "$cwd" != "" ]; then
+		[ -e "$cwd" ] && {
 			pre_log_length=$(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}')
-		fi
+		}
 		echo "mcsvutils: ${servicename} にコマンドを送信しています..."
 		echo "> $send_command"
 		dispatch_mccommand "$owner" "$servicename" "$send_command"
 		echo "mcsvutils: コマンドを送信しました"
-		sleep .1
-		echo "レスポンス:"
-		as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
+		[ -e "$cwd" ] && {
+			sleep .1
+			echo "レスポンス:"
+			as_user "$owner" "tail -n $(($(as_user "$owner" "wc -l \"$cwd/logs/latest.log\"" | awk '{print $1}') - pre_log_length)) \"$cwd/logs/latest.log\""
+		}
 		return $RESPONCE_POSITIVE
 	}
 
