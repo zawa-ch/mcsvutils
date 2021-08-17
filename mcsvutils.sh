@@ -910,15 +910,15 @@ action_server()
 		[ "${#options[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${options[@]}")
 		invocations=("${invocations[@]}" "-jar" "$executejar")
 		[ "${#arguments[@]}" -ne 0 ] && invocations=("${invocations[@]}" "${arguments[@]}")
-		sudo -sHu "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
+		as_user "$owner" screen -list "$servicename" > /dev/null && { echo "mcsvutils: ${servicename} は起動済みです" >&2; return $RESPONCE_NEGATIVE; }
 		if [ -z "$attachflag" ]; then
 			echo "mcsvutils: $servicename を起動しています"
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
-				sudo -sHu "$owner" screen -dmS "$servicename" "${invocations[@]}"
+				as_user "$owner" screen -dmS "$servicename" "${invocations[@]}"
 			)
 			sleep .5
-			if sudo -sHu "$owner" screen -list "$servicename" > /dev/null; then
+			if as_user "$owner" screen -list "$servicename" > /dev/null; then
 				echo "mcsvutils: ${servicename} が起動しました"
 				return $RESPONCE_POSITIVE
 			else
@@ -928,7 +928,7 @@ action_server()
 		else
 			(
 				cd "$cwd" || { echo "mcsvutils: [E] $cwd に入れませんでした" >&2; return $RESPONCE_ERROR; }
-				sudo -sHu "$owner" screen -mS "$servicename" "${invocations[@]}"
+				as_user "$owner" screen -mS "$servicename" "${invocations[@]}"
 			)
 		fi
 	}
