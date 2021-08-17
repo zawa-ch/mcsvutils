@@ -1322,6 +1322,7 @@ action_image()
 		echo "$repository" | repository_save
 		chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json" || return
 	}
+	repository_is_writable() { touch -c "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json"; }
 
 	# Subcommands --------------------------
 	action_image_list()
@@ -1584,6 +1585,7 @@ action_image()
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
 
@@ -1692,6 +1694,7 @@ action_image()
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
 
@@ -1795,6 +1798,7 @@ action_image()
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
 
 		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
+		repository_is_writable || return $RESPONCE_ERROR
 		local repository
 		repository="$(repository_open)"
 		echo "$repository" | repository_check_integrity || return $RESPONCE_ERROR
@@ -1890,6 +1894,7 @@ action_image()
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
 		repository="$(repository_open)" || { echoerr "mcsvutils: [E] イメージリポジトリのデータは有効なJSONではありません"; return $RESPONCE_ERROR; }
 		local version
 		version="$(echo "$repository" | repository_get_version)" || { echoerr "mcsvutils: [E] イメージリポジトリのバージョンを読み取れませんでした"; return $RESPONCE_ERROR; }
