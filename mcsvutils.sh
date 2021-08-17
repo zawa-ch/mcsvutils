@@ -298,6 +298,8 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		if [ ${#args[@]} -gt 0 ]; then profile_open "${args[0]}" || return; else profile_open || return; fi
 		profile_check_integrity || { echoerr "mcsvutils: [E] 指定されたデータは正しいプロファイルデータではありません"; return $RESPONCE_ERROR; }
 		echo "サービス名: $(profile_get_servicename)"
@@ -415,6 +417,8 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local result="{}"
 		[ -n "$profileflag" ] && [ -n "$inputflag" ] && { echoerr "mcsvutils: [E] --profileと--inputは同時に指定できません"; return $RESPONCE_ERROR; }
 		[ -n "$profileflag" ] && { { profile_open "$profileflag" && profile_check_integrity && result="$profile_data"; } || return $RESPONCE_ERROR; }
@@ -506,6 +510,7 @@ action_profile()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		if [ "${#args[@]}" -ge 1 ]
 			then { profile_open "${args[0]}" || return $RESPONCE_ERROR; }
@@ -724,6 +729,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -853,6 +860,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local imagetag=''
 		local executejar=''
@@ -1001,6 +1010,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -1106,6 +1117,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local owner=''
 		if [ -n "$nameflag" ]; then
@@ -1196,6 +1209,8 @@ action_server()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local servicename=''
 		local cwd=''
 		local owner=''
@@ -1351,6 +1366,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		repository_is_exist || { echoerr "mcsvutils: 対象となるイメージが存在しません"; return $RESPONCE_NEGATIVE; }
 		local repository
@@ -1421,6 +1437,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
@@ -1522,6 +1539,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		fetch_mcversions || return
 
@@ -1657,6 +1675,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ファイルを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
@@ -1763,6 +1782,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] イメージを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
@@ -1859,6 +1879,7 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
 
 		local repository
 		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
@@ -1966,8 +1987,8 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		fetch_mcversions || return $?
 		if [ -n "$latestflag" ]; then
 			if [ -z "$snapshotflag" ]; then
@@ -2062,8 +2083,8 @@ action_image()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		fetch_mcversions || return
 
 		local selected_version
@@ -2212,8 +2233,8 @@ action_spigot()
 
 		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
 		[ -n "$usageflag" ] && { usage; return; }
-
 		check || { oncheckfail; return $RESPONCE_ERROR; }
+
 		local invocations=()
 		if [ -n "$javaflag" ]
 			then invocations=("$javaflag")
