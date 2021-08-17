@@ -1318,7 +1318,9 @@ action_image()
 		repository="$(echo "$repository" | jq -c --argjson version "$REPO_VERSION" '. |= { $version }')" || return
 		repository="$(echo "$repository" | jq -c '.image |= { }')" || return
 		mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION"
+		chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION" || return
 		echo "$repository" | repository_save
+		chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/repository.json" || return
 	}
 
 	# Subcommands --------------------------
@@ -1595,7 +1597,9 @@ action_image()
 		(
 			cd "$work_dir" || { echoerr "mcsvutils: [E] 作業用ディレクトリに入れませんでした"; return $RESPONCE_ERROR; }
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 			cp "$destination" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "$destination")" || return
 		) || return
 		rm -rf "${work_dir:?}"
 
@@ -1701,13 +1705,16 @@ action_image()
 		local jar_path
 		if [ -n "$linkflag" ]; then
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 			ln "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのリンク作成に失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		elif [ -n "$nocopyflag" ]; then
 			jar_path="$(cd "$(dirname "${args[0]}")" || return $RESPONCE_ERROR; pwd)/${args[0]}" || { echoerr "mcsvutils: [E] ファイルの取得に失敗しました。"; return $RESPONCE_ERROR; }
 		else
 			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id"
+			chmod u=rwx,go=rx "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 			cp "${args[0]}" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" || { echoerr "mcsvutils: [E] ファイルのコピーに失敗しました。"; rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+			chmod u=rw,go=r "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")" || return
 			jar_path="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$(basename "${args[0]}")"
 		fi
 
