@@ -28,7 +28,7 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.4.1 2021-08-17
+	version 0.4.2 2021-09-19
 	Copyright 2020,2021 zawa-ch.
 	__EOF
 }
@@ -121,7 +121,7 @@ as_user()
 	if [ "$(whoami)" = "$user" ]; then
 		bash -c -- "$*"
 	else
-		sudo -sHu "$user" "$@"
+		sudo -sHu "$user" bash -c -- "$*"
 	fi
 }
 
