@@ -121,7 +121,7 @@ as_user()
 	if [ "$(whoami)" = "$user" ]; then
 		bash -c -- "$*"
 	else
-		sudo -sHu "$user" "$@"
+		sudo -sHu "$user" bash -c -- "$*"
 	fi
 }
 
