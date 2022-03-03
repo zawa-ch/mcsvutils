@@ -2215,13 +2215,10 @@ action_image()
 			chmod -R u=rwx,go=rx,ugo+X "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 		) || { echoerr "mcsvutils: [E] Minecraftforgeサーバーのインストールに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		local resultjar
-		resultjar="$(tail "$(basename "${args[0]}").log" | grep -- " *Output: .*\\.jar" | sed -e 's/ *Output: //g' -e 's/ Checksum Validated: [0-9a-f]*//g')" || {
-			echoerr "mcsvutils: [E] ファイル名の取得に失敗しました。"
-			rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"
-			return $RESPONCE_ERROR
-		}
+		resultjar="$(basename "$(ls -1 "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/forge-*")")"
+		resultjar="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$resultjar"
 		local resultname
-		resultname="${resultjar//-server.jar/}"
+		resultname="${resultjar//.jar/}"
 
 		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$resultname\", \"path\": \"$resultjar\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 		echo "$repository" | repository_save || return $RESPONCE_ERROR
