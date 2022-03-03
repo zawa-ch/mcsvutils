@@ -3,7 +3,7 @@
 : <<- __License
 MIT License
 
-Copyright (c) 2020,2021 zawa-ch.
+Copyright (c) 2020-2022 zawa-ch.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,8 +28,8 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.4.2 2021-09-19
-	Copyright 2020,2021 zawa-ch.
+	version 0.5.0 2022-03-03
+	Copyright 2020-2022 zawa-ch.
 	__EOF
 }
 
@@ -1284,7 +1284,7 @@ action_server()
 action_image()
 {
 	# Usage/Help ---------------------------
-	local SUBCOMMANDS=("help" "list" "info" "pull" "add" "remove" "update" "find" "get")
+	local SUBCOMMANDS=("help" "list" "info" "pull" "add" "remove" "update" "find" "get" "installforge")
 	usage()
 	{
 		cat <<- __EOF
@@ -1299,15 +1299,16 @@ action_image()
 
 		使用可能なサブコマンドは以下のとおりです。
 
-		  help    このヘルプを表示する
-		  list    イメージリポジトリ内のイメージ一覧取得
-		  info    イメージリポジトリ内のイメージ情報取得
-		  pull    Minecraftサーバーイメージをイメージリポジトリに追加
-		  add     イメージリポジトリにイメージ追加
-		  remove  イメージリポジトリ内のイメージ削除
-		  update  イメージリポジトリの更新
-		  find    Miecraftサーバーイメージのバージョン一覧取得
-		  get     Miecraftサーバーイメージの取得
+		  help          このヘルプを表示する
+		  list          イメージリポジトリ内のイメージ一覧取得
+		  info          イメージリポジトリ内のイメージ情報取得
+		  pull          Minecraftサーバーイメージをイメージリポジトリに追加
+		  add           イメージリポジトリにイメージ追加
+		  remove        イメージリポジトリ内のイメージ削除
+		  update        イメージリポジトリの更新
+		  find          Miecraftサーバーイメージのバージョン一覧取得
+		  get           Miecraftサーバーイメージの取得
+		  installforge  Minecraftforge MODサーバーのインストール
 		__EOF
 	}
 
@@ -1686,7 +1687,7 @@ action_image()
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ファイルを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
 		{ [ -n "$copyflag" ] && [ -n "$linkflag" ]; } && { echoerr "mcsvutils: [E] --copy と --link は同時に指定できません"; return $RESPONCE_ERROR; }
-		{ [ -n "$linkflag" ] && [ -n "$nocopyflag" ]; } && { echoerr "mcsvutils: [E] --linkflag と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
+		{ [ -n "$linkflag" ] && [ -n "$nocopyflag" ]; } && { echoerr "mcsvutils: [E] --link と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
 		{ [ -n "$nocopyflag" ] && [ -n "$copyflag" ]; } && { echoerr "mcsvutils: [E] --copy と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
 
 		[ -e "${args[0]}" ] || { echoerr "mcsvutils: [E] ${args[0]} が見つかりません"; return $RESPONCE_ERROR; }
@@ -2131,6 +2132,100 @@ action_image()
 			echoerr "mcsvutils: [W] データのダウンロードが完了しましたが、チェックサムが一致しませんでした"
 			return $RESPONCE_ERROR
 		fi
+	}
+	action_image_installforge()
+	{
+		usage()
+		{
+			cat <<- __EOF
+			使用法: $0 image installforge [--java <java実行環境>] <インストーラーjar>
+			__EOF
+		}
+		help()
+		{
+			cat <<- __EOF
+			image installforge はMinecraftforge MODサーバーのインストーラーを起動し、イメージリポジトリ内にインストールします。
+			https://files.minecraftforge.net/ からインストーラーをダウンロードして使用してください。
+
+			--java
+			    java実行環境を指定します。
+			    指定がなかった場合は'java'が使用されます。
+			__EOF
+		}
+		local args=()
+		local javaflag=''
+		local helpflag=''
+		local usageflag=''
+		while (( $# > 0 ))
+		do
+			case $1 in
+				--java) 	shift; javaflag="$1"; shift;;
+				--help) 	helpflag='--help'; shift;;
+				--usage)	usageflag='--usage'; shift;;
+				--)	shift; break;;
+				--*)	echo_invalid_flag "$1"; shift;;
+				-*)
+					[[ "$1" =~ h ]] && { helpflag='-h'; }
+					shift
+					;;
+				*)
+					args=("${args[@]}" "$1")
+					shift
+					;;
+			esac
+		done
+		while (( $# > 0 ))
+		do
+			args=("${args[@]}" "$1")
+			shift
+		done
+
+		[ -n "$helpflag" ] && { version; echo; usage; echo; help; return; }
+		[ -n "$usageflag" ] && { usage; return; }
+		check || { oncheckfail; return $RESPONCE_ERROR; }
+
+		local invocations=()
+		if [ -n "$javaflag" ]
+			then invocations=("$javaflag")
+			else invocations=("java")
+		fi
+		[ ${#args[@]} -lt 1 ] && {
+			echoerr "mcsvutils: [E] インストールするMinecraftforgeのjarを指定してください"
+			return $RESPONCE_ERROR
+		}
+		invocations=("${invocations[@]}" "-jar" "${args[0]}")
+
+		local repository
+		repository_is_exist || repository_new || { echoerr "mcsvutils: [E] リポジトリの作成に失敗しました"; return $RESPONCE_ERROR; }
+		repository_is_writable || return $RESPONCE_ERROR
+		repository="$(repository_open)"
+		echo "$repository" | repository_check_integrity || { echoerr "mcsvutils: [E] リポジトリを正しく読み込めませんでした"; return $RESPONCE_ERROR; }
+
+		local id
+		while :
+		do
+			id="$(cat /proc/sys/kernel/random/uuid)"
+			echo "$repository" | repository_is_exist_image "$id" || break
+		done
+
+		invocations=("${invocations[@]}" "--installServer" "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/")
+		(
+			mkdir -p "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || { echoerr "mcsvutils: [E] ディレクトリを作成できませんでした。"; return $RESPONCE_ERROR; }
+			"${invocations[@]}" || return
+			chmod -R u=rwx,go=rx,ugo+X "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
+		) || { echoerr "mcsvutils: [E] Minecraftforgeサーバーのインストールに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
+		local resultjar
+		resultjar="$(basename "$(tail "${args[0]}.log" | grep -- " *Output: .*\\.jar" | sed -e 's/ *Output: //g' -e 's/ Checksum Validated: [0-9a-f]*//g')")"
+		local resultname
+		resultname="${resultjar//-server.jar/}"
+
+		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$resultname\", \"path\": \"$resultjar\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
+		echo "$repository" | repository_save || return $RESPONCE_ERROR
+		echoerr "mcsvutils: 操作は成功しました"
+		echo "ID: $id"
+		echo "名前: $resultname"
+		echo "jarファイルのパス: $resultjar"
+		return $RESPONCE_POSITIVE
 	}
 
 	# Analyze arguments --------------------
