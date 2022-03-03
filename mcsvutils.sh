@@ -2215,7 +2215,11 @@ action_image()
 			chmod -R u=rwx,go=rx,ugo+X "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 		) || { echoerr "mcsvutils: [E] Minecraftforgeサーバーのインストールに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		local resultjar
-		resultjar="$(basename "$(find "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" ./ -maxdepth 1 -name "forge*" -type f -print -quit)")"
+		resultjar="$(basename "$(find "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" ./ -maxdepth 1 -name "forge*" -type f -print -quit)")" || {
+			echoerr "mcsvutils: [E] Minecraftforgeサーバーの実行用ファイルが見つかりませんでした。"
+			rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"
+			return $RESPONCE_ERROR
+		}
 		local resultname
 		resultname="${resultjar//.jar/}"
 		resultjar="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$resultjar"
