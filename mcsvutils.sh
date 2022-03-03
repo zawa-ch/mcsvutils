@@ -28,7 +28,7 @@ version()
 {
 	cat <<- __EOF
 	mcsvutils - Minecraft server commandline utilities
-	version 0.5.0 2022-03-03
+	version 0.5.2 2022-03-03
 	Copyright 2020-2022 zawa-ch.
 	__EOF
 }
@@ -2215,7 +2215,7 @@ action_image()
 			chmod -R u=rwx,go=rx,ugo+X "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id" || return
 		) || { echoerr "mcsvutils: [E] Minecraftforgeサーバーのインストールに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		local resultjar
-		resultjar="$(basename "$(tail "$(basename "${args[0]}").log" | grep -- " *Output: .*\\.jar" | sed -e 's/ *Output: //g' -e 's/ Checksum Validated: [0-9a-f]*//g')")" || {
+		resultjar="$(tail "$(basename "${args[0]}").log" | grep -- " *Output: .*\\.jar" | sed -e 's/ *Output: //g' -e 's/ Checksum Validated: [0-9a-f]*//g')" || {
 			echoerr "mcsvutils: [E] ファイル名の取得に失敗しました。"
 			rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"
 			return $RESPONCE_ERROR
