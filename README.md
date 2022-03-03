@@ -20,6 +20,7 @@ mcsvutils (Minecraft server utilities) は、Minecraftサーバーの実行イ�
     - サーバー実行イメージのダウンロード
     - サーバー実行イメージの内部リポジトリへの登録
     - 内部リポジトリに登録された実行イメージを使用したサーバインスタンスの起動
+    - minecraftforgeサーバーイメージのインストール(試験的)
     - Spigot/CraftBukkitサーバーのビルド(試験的)
 
 ## 依存パッケージ
