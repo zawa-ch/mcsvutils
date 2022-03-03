@@ -2216,9 +2216,9 @@ action_image()
 		) || { echoerr "mcsvutils: [E] Minecraftforgeサーバーのインストールに失敗しました。詳細はログを確認してください。"; return $RESPONCE_ERROR; }
 		local resultjar
 		resultjar="$(basename "$(find "$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/" ./ -maxdepth 1 -name "forge*" -type f -print -quit)")"
-		resultjar="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$resultjar"
 		local resultname
 		resultname="${resultjar//.jar/}"
+		resultjar="$MCSVUTILS_IMAGEREPOSITORY_LOCATION/$id/$resultjar"
 
 		repository="$(echo "$repository" | jq --argjson data "{ \"name\": \"$resultname\", \"path\": \"$resultjar\" }" ".images.\"$id\" |= \$data")" || { [ -e "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}" ] && rm -rf "${MCSVUTILS_IMAGEREPOSITORY_LOCATION:?}/${id:?}"; return $RESPONCE_ERROR; }
 		echo "$repository" | repository_save || return $RESPONCE_ERROR
