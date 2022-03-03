@@ -1686,7 +1686,7 @@ action_image()
 		[ ${#args[@]} -lt 1 ] && { echoerr "mcsvutils: [E] ファイルを指定してください"; return $RESPONCE_ERROR; }
 		[ ${#args[@]} -gt 1 ] && { echoerr "mcsvutils: [E] 引数が多すぎます"; return $RESPONCE_ERROR; }
 		{ [ -n "$copyflag" ] && [ -n "$linkflag" ]; } && { echoerr "mcsvutils: [E] --copy と --link は同時に指定できません"; return $RESPONCE_ERROR; }
-		{ [ -n "$linkflag" ] && [ -n "$nocopyflag" ]; } && { echoerr "mcsvutils: [E] --linkflag と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
+		{ [ -n "$linkflag" ] && [ -n "$nocopyflag" ]; } && { echoerr "mcsvutils: [E] --link と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
 		{ [ -n "$nocopyflag" ] && [ -n "$copyflag" ]; } && { echoerr "mcsvutils: [E] --copy と --no-copy は同時に指定できません"; return $RESPONCE_ERROR; }
 
 		[ -e "${args[0]}" ] || { echoerr "mcsvutils: [E] ${args[0]} が見つかりません"; return $RESPONCE_ERROR; }
